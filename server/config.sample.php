@@ -19,4 +19,13 @@ return [
     'apk_url' => 'https://okkynoisy.com/rukuntetangga/download/rukuntetangga.apk',
 
     'timezone' => 'Asia/Jakarta',
+
+    // Notifikasi HP (Firebase Cloud Messaging). Kosongkan bila belum dipakai.
+    // Isi dengan path ABSOLUT file service account JSON dari Firebase.
+    // Simpan file itu DI LUAR public_html, mis. /home/u123/rukuntetangga-firebase.json
+    'fcm_service_account' => '',
+
+    // Pengingat iuran otomatis (dijalankan cron_pengingat.php tiap hari).
+    // Tanggal berapa tiap bulan pengingat dikirim ke rumah yang belum bayar. 0 = mati.
+    'pengingat_tanggal' => 10,
 ];

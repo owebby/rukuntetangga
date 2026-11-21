@@ -27,6 +27,7 @@ import androidx.core.content.FileProvider
 import com.rukuntetangga.app.BuildConfig
 import com.rukuntetangga.app.data.Api
 import com.rukuntetangga.app.data.ApiException
+import com.rukuntetangga.app.data.Sesi
 import com.rukuntetangga.app.data.objects
 import com.rukuntetangga.app.data.str
 import com.rukuntetangga.app.ui.*
@@ -82,7 +83,10 @@ fun LayarAkun(saya: Saya, buka: (String) -> Unit, onKeluar: () -> Unit) {
         title = { Text("Keluar dari akun?") },
         confirmButton = {
             TextButton(onClick = {
-                scope.launch { try { Api.postForm("auth.php", "keluar", emptyMap()) } catch (_: Exception) {}; onKeluar() }
+                scope.launch {
+                    try { Api.postForm("auth.php", "keluar", mapOf("fcm_token" to Sesi.fcm)) } catch (_: Exception) {}
+                    onKeluar()
+                }
             }) { Text("Keluar", color = Warna.Keluar) }
         },
         dismissButton = { TextButton(onClick = { konfirmasi = false }) { Text("Batal", color = Warna.Hitam) } },

@@ -4,6 +4,10 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Notifikasi (Firebase) aktif hanya bila app/google-services.json ada.
+// Tanpa file itu app tetap bisa dibangun & berjalan, hanya tanpa notifikasi.
+if (file("google-services.json").exists()) apply(plugin = "com.google.gms.google-services")
+
 val apiBase: String = (project.findProperty("apiBase") as String?) ?: "https://okkynoisy.com/rukuntetangga/"
 
 android {
@@ -15,7 +19,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = "1.0.0"
+        versionName = "1.1.0"
         buildConfigField("String", "API_BASE", "\"$apiBase\"")
     }
 
@@ -69,5 +73,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.exifinterface:exifinterface:1.3.7") // rotasi foto kamera
-    implementation("com.google.zxing:core:3.5.3")   // membuat QR kode rumah (tanpa kamera)
+    implementation("com.google.zxing:core:3.5.3")
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-messaging")       // notifikasi HP (v1.1)   // membuat QR kode rumah (tanpa kamera)
 }

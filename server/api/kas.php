@@ -77,7 +77,14 @@ switch (aksi()) {
         db()->prepare('INSERT INTO kas_transaksi (rt_id, jenis, kategori, nominal, keterangan, tanggal, foto_nota, dicatat_oleh)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute([$me['rt_id'], $jenis, $kategori, $nominal, $ket, $tgl, $foto, $me['id']]);
-        balas(['id' => (int)db()->lastInsertId(), 'saldo' => saldoKas($me['rt_id'])]);
+        $id = (int)db()->lastInsertId();
+        $saldo = saldoKas($me['rt_id']);
+        // Transparansi: setiap pengeluaran dikabarkan ke semua warga.
+        if ($jenis === 'keluar') {
+            antreNotif(wargaRt($me['rt_id'], null, $me['id']), '💸 Kas keluar ' . rupiahTeks($nominal),
+                $ket . ' · saldo kini ' . rupiahTeks($saldo), 'kas');
+        }
+        balas(['id' => $id, 'saldo' => $saldo]);
     }
 
     // POST {id, alasan} → batalkan transaksi (tetap tampil, dicoret)
@@ -110,6 +117,9 @@ switch (aksi()) {
             $lunas = rumahLunas($me['rt_id'], $periode);
             $st = db()->prepare('SELECT id, label FROM rumah WHERE rt_id = ? AND aktif = 1 ORDER BY label');
             $st->execute([$me['rt_id']]);
+            $st2 = db()->prepare('SELECT pada, jumlah_rumah FROM pengingat_iuran WHERE rt_id = ? AND periode = ? ORDER BY id DESC LIMIT 1');
+            $st2->execute([$me['rt_id'], $periode]);
+            $data['pengingat_terakhir'] = $st2->fetch() ?: null;
             $data['rumah'] = array_map(fn($r) => [
                 'id' => (int)$r['id'], 'label' => $r['label'], 'lunas' => in_array((int)$r['id'], $lunas, true),
             ], $st->fetchAll());
@@ -150,7 +160,27 @@ switch (aksi()) {
         $ins = $pdo->prepare('INSERT INTO iuran_bayar (rt_id, rumah_id, periode, transaksi_id) VALUES (?, ?, ?, ?)');
         foreach ($valid as $rid) $ins->execute([$me['rt_id'], $rid, $periode, $trx]);
         $pdo->commit();
+        antreNotif(wargaRumah($valid), '✅ Iuran ' . namaBulan($periode) . ' tercatat lunas',
+            'Terima kasih! Iuran rumahmu sudah dicatat bendahara.', 'kas/iuran');
         balas(['dicatat' => count($valid), 'dilewati' => count($ids) - count($valid), 'saldo' => saldoKas($me['rt_id'])]);
+    }
+
+    // POST {periode} — bendahara/ketua mengingatkan rumah yang belum bayar (v1.1)
+    case 'iuran_ingatkan': {
+        wajibMetode('POST');
+        $me = wajibPeran(PENCATAT_KAS);
+        $hasil = kirimPengingatIuran($me['rt_id'], cekPeriode(teks('periode', 7)), $me['id']);
+        if (isset($hasil['lewati'])) gagal($hasil['lewati'], 409);
+        balas($hasil);
+    }
+
+    // GET ?aksi=rekap&periode= — rekap bulanan untuk dibagikan ke grup WA (v1.1). Semua warga boleh.
+    case 'rekap': {
+        $me = saya();
+        $periode = cekPeriode((string)(input()['periode'] ?? periodeSekarang()));
+        balas(['rt' => $me['rt_nama'], 'wilayah' => $me['rt_wilayah'],
+               'iuran' => ringkasIuran($me['rt_id'], $periode, $me['rumah_id']),
+               'rekap' => rekapBulan($me['rt_id'], $periode)]);
     }
 
     case 'kategori': {

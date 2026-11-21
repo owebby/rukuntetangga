@@ -78,6 +78,9 @@ switch (aksi()) {
             ->execute([$me['rt_id'], $judul, $isi, $foto, $penting, $me['id']]);
         $id = (int)db()->lastInsertId();
         db()->prepare('INSERT IGNORE INTO pengumuman_baca (pengumuman_id, warga_id) VALUES (?, ?)')->execute([$id, $me['id']]);
+        // Notifikasi ke semua warga RT (kecuali penulis).
+        antreNotif(wargaRt($me['rt_id'], null, $me['id']), ($penting ? '📢 PENTING: ' : '📢 ') . $judul,
+            mb_substr(preg_replace('/\s+/u', ' ', $isi), 0, 120), "info/$id");
         balas(['id' => $id]);
     }
 

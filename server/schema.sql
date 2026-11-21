@@ -151,3 +151,25 @@ CREATE TABLE IF NOT EXISTS laporan_status (
   CONSTRAINT fk_ls_lap FOREIGN KEY (laporan_id) REFERENCES laporan(id),
   CONSTRAINT fk_ls_oleh FOREIGN KEY (oleh) REFERENCES warga(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------- NOTIFIKASI (v1.1)
+-- Token FCM per HP. Satu warga bisa punya beberapa HP.
+CREATE TABLE IF NOT EXISTS perangkat (
+  fcm_token   VARCHAR(255) NOT NULL PRIMARY KEY,
+  warga_id    INT UNSIGNED NOT NULL,
+  diperbarui  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_warga (warga_id),
+  CONSTRAINT fk_perangkat_warga FOREIGN KEY (warga_id) REFERENCES warga(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Jejak pengingat iuran (anti-spam: maks 1x per 3 hari per periode).
+CREATE TABLE IF NOT EXISTS pengingat_iuran (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  rt_id       INT UNSIGNED NOT NULL,
+  periode     CHAR(7) NOT NULL,
+  jumlah_rumah INT UNSIGNED NOT NULL,
+  oleh        INT UNSIGNED NULL,              -- NULL = otomatis (cron)
+  pada        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_rt_periode (rt_id, periode),
+  CONSTRAINT fk_ping_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

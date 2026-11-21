@@ -3,6 +3,8 @@
 require __DIR__ . '/_core.php';
 
 const STATUS_LAPORAN = ['diterima', 'dikerjakan', 'selesai', 'ditolak'];
+const LABEL_LAPORAN = ['lampu' => 'Lampu jalan', 'saluran' => 'Got / saluran', 'sampah' => 'Sampah', 'jalan' => 'Jalan rusak',
+    'keamanan' => 'Keamanan', 'fasilitas' => 'Fasilitas umum', 'lainnya' => 'Lainnya'];
 
 function barisLaporan(array $r): array
 {
@@ -69,6 +71,9 @@ switch (aksi()) {
         $pdo->prepare("INSERT INTO laporan_status (laporan_id, status, oleh) VALUES (?, 'diterima', ?)")
             ->execute([$id, $me['id']]);
         $pdo->commit();
+        antreNotif(wargaRt($me['rt_id'], PERAN_PENGURUS, $me['id']), '🔧 Laporan baru: ' . LABEL_LAPORAN[$kategori],
+            trim($lokasi . ($lokasi && $catatan ? ' · ' : '') . $catatan) ?: 'Dari ' . $me['nama'] . ' (' . $me['rumah_label'] . ')',
+            "laporan/$id");
         balas(['id' => $id]);
     }
 
@@ -79,10 +84,11 @@ switch (aksi()) {
         $id = angka('id', 1);
         $status = pilihan('status', ['dikerjakan', 'selesai', 'ditolak']);
         $catatan = teks('catatan', 200, $status === 'ditolak'); // menolak wajib beri alasan
-        $st = db()->prepare('SELECT status FROM laporan WHERE id = ? AND rt_id = ?');
+        $st = db()->prepare('SELECT status, pelapor_id, kategori FROM laporan WHERE id = ? AND rt_id = ?');
         $st->execute([$id, $me['rt_id']]);
-        $lama = $st->fetchColumn();
-        if ($lama === false) gagal('Laporan tidak ditemukan.', 404);
+        $lap = $st->fetch();
+        if (!$lap) gagal('Laporan tidak ditemukan.', 404);
+        $lama = $lap['status'];
         if (in_array($lama, ['selesai', 'ditolak'], true)) gagal('Laporan ini sudah ditutup.', 409);
         if ($lama === $status) gagal('Status sudah ' . $status . '.', 409);
         $foto = simpanFoto('foto');
@@ -92,6 +98,10 @@ switch (aksi()) {
         $pdo->prepare('INSERT INTO laporan_status (laporan_id, status, catatan, foto, oleh) VALUES (?, ?, ?, ?, ?)')
             ->execute([$id, $status, $catatan, $foto, $me['id']]);
         $pdo->commit();
+        // Kabari pelapor.
+        $ikon = ['dikerjakan' => '🛠️', 'selesai' => '✅', 'ditolak' => '❌'][$status];
+        antreNotif([(int)$lap['pelapor_id']], "$ikon Laporanmu " . $status . ': ' . (LABEL_LAPORAN[$lap['kategori']] ?? $lap['kategori']),
+            $catatan !== '' ? $catatan : 'Ketuk untuk melihat perkembangannya.', "laporan/$id");
         balas();
     }
 

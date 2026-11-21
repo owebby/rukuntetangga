@@ -21,6 +21,8 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');           // jangan di-cache LiteSpeed/browser
 header('X-Content-Type-Options: nosniff');
 
+require __DIR__ . '/_notif.php';
+
 const PERAN_PENGURUS = ['ketua', 'bendahara', 'sekretaris'];
 const KATEGORI_KAS_MASUK  = ['iuran', 'sumbangan', 'kegiatan', 'lainnya'];
 const KATEGORI_KAS_KELUAR = ['kebersihan', 'keamanan', 'perbaikan', 'kegiatan', 'sosial', 'administrasi', 'lainnya'];
@@ -45,8 +47,15 @@ function db(): PDO
 
 function balas(array $data = [], int $kode = 200): never
 {
+    global $ANTREAN_NOTIF;
     http_response_code($kode);
     echo json_encode(['ok' => $kode < 400] + $data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    // Notifikasi dikirim SETELAH respons sampai ke app (app tidak ikut menunggu).
+    if ($kode < 400 && !empty($ANTREAN_NOTIF)) {
+        if (function_exists('litespeed_finish_request')) litespeed_finish_request();
+        elseif (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+        kirimAntreanNotif();
+    }
     exit;
 }
 
@@ -234,6 +243,18 @@ function cekPeriode(string $p): string
 {
     if (!preg_match('/^(20\d\d)-(0[1-9]|1[0-2])$/', $p)) gagal('Periode harus format YYYY-MM.');
     return $p;
+}
+
+function rupiahTeks(int $n): string
+{
+    return 'Rp' . number_format($n, 0, ',', '.');
+}
+
+/** '2026-11' → 'November 2026' */
+function namaBulan(string $periode): string
+{
+    $b = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    return $b[(int)substr($periode, 5, 2)] . ' ' . substr($periode, 0, 4);
 }
 
 function kodeAcak(int $n = 8): string

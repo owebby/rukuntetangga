@@ -129,7 +129,10 @@ switch (aksi()) {
         if ($id === $me['id']) gagal('Tidak bisa menonaktifkan akun sendiri.');
         wargaMilikRt($id, $me['rt_id']);
         db()->prepare('UPDATE warga SET aktif = ? WHERE id = ?')->execute([$aktif, $id]);
-        if (!$aktif) db()->prepare('DELETE FROM sesi WHERE warga_id = ?')->execute([$id]);
+        if (!$aktif) {
+            db()->prepare('DELETE FROM sesi WHERE warga_id = ?')->execute([$id]);
+            db()->prepare('DELETE FROM perangkat WHERE warga_id = ?')->execute([$id]); // berhenti terima notif
+        }
         balas();
     }
 

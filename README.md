@@ -12,6 +12,9 @@ Rukun Tetangga adalah proyek sosial. Di banyak lingkungan, saldo kas, siapa yang
 | **Iuran** | Bendahara cukup mencentang rumah yang sudah bayar. Warga melihat persentase rumah yang lunas dan status rumahnya sendiri. Daftar per rumah hanya untuk pengurus, supaya tidak ada yang dipermalukan. |
 | **Pengumuman** | Info resmi dari ketua/sekretaris, lengkap dengan hitungan "dibaca 12 dari 30 warga". |
 | **Laporan Warga** | Lampu mati, got mampet, sampah: cukup foto lalu pilih jenis masalah. Perkembangannya (Diterima → Dikerjakan → Selesai) terlihat semua warga. |
+| **Notifikasi HP** | Pengumuman baru, setiap kas keluar, iuran tercatat, dan perkembangan laporan langsung muncul di HP. |
+| **Rekap kas ke WhatsApp** | Sekali ketuk, rekap bulanan (saldo, rincian pemasukan & pengeluaran, persentase iuran) jadi gambar siap kirim ke grup WA RT. |
+| **Pengingat iuran** | Bendahara mengingatkan rumah yang belum bayar lewat pesan pribadi, bisa juga otomatis tiap bulan. Tidak pernah diumumkan ke semua. |
 
 **Cara bergabung**: ketua RT membuat kode/QR untuk tiap rumah. Warga memindai QR atau mengetik kode, lalu mengisi nama, nomor HP, dan PIN 6 angka. Tidak perlu email atau akun Google.
 
@@ -65,7 +68,23 @@ Butuh hosting dengan **PHP 8.1 atau lebih baru** dan **MySQL/MariaDB**. Shared h
 
 > **Server nginx**: perlindungan `config.php` dan folder `uploads/` memakai `.htaccess`, yang hanya berlaku di Apache/LiteSpeed. Di nginx, blokir akses ke `config.php`, `schema.sql`, file berawalan `_` di `api/`, dan eksekusi PHP di `uploads/` lewat konfigurasi server.
 
-### 2. Build APK yang mengarah ke servermu
+### 2. (Opsional) Aktifkan notifikasi HP
+
+Notifikasi memakai Firebase Cloud Messaging (gratis). Tanpa langkah ini aplikasi tetap berjalan normal, hanya tanpa notifikasi.
+
+1. Buka [console.firebase.google.com](https://console.firebase.google.com) dan buat project baru. Google Analytics boleh dimatikan.
+2. Tambah aplikasi **Android** dengan nama paket `com.rukuntetangga.app`. Unduh **`google-services.json`**, lalu taruh di `android/app/`.
+3. Buka **Project settings → Service accounts → Generate new private key**. Unggah file JSON itu ke hosting **di luar `public_html`**, lalu isi path lengkapnya di `fcm_service_account` pada `config.php`.
+   > File service account adalah kunci rahasia. Jangan di-commit ke git dan jangan dikirim lewat chat.
+4. (Opsional) Pengingat iuran otomatis: tambahkan Cron Job harian di hosting:
+   ```
+   php /path/ke/rukuntetangga/cron_pengingat.php
+   ```
+   Tanggal kirimnya diatur lewat `pengingat_tanggal` di `config.php`.
+
+> **Update dari v1.0**: impor ulang `schema.sql` lewat phpMyAdmin. Aman, karena hanya menambah tabel baru (`perangkat`, `pengingat_iuran`).
+
+### 3. Build APK yang mengarah ke servermu
 
 Ubah `apiBase` di `android/gradle.properties` ke alamat servermu, atau kirim saat build:
 
@@ -76,7 +95,7 @@ gradle assembleRelease -PapiBase=https://domainmu.com/rukuntetangga/
 
 Cara lainnya: buka folder `android/` di Android Studio, lalu pilih **Build → Build APK(s)**.
 
-### 3. Mulai dipakai
+### 4. Mulai dipakai
 
 Ketua masuk ke aplikasi, lalu buka **Akun → Rumah & kode QR → Tambah rumah**. Bisa langsung banyak sekaligus, satu rumah per baris. QR tiap rumah bisa dibagikan ke penghuninya lewat WhatsApp.
 
@@ -84,7 +103,7 @@ Ketua masuk ke aplikasi, lalu buka **Akun → Rumah & kode QR → Tambah rumah**
 
 ### Tes API
 
-Tes ini menjalankan 47 pengecekan end-to-end terhadap MySQL sungguhan, termasuk hak akses tiap peran.
+Tes ini menjalankan 66 pengecekan end-to-end terhadap MySQL sungguhan, termasuk hak akses tiap peran.
 
 ```
 DB_HOST=localhost DB_NAME=rt_test DB_USER=... DB_PASS=... bash server/tests/smoke.sh
@@ -113,7 +132,7 @@ Kalau menemukan celah keamanan, mohon laporkan lewat Issues **tanpa** menyertaka
 
 ## Peta jalan
 
-v1 sedang diuji di lapangan. Yang belum ada dan masih dipertimbangkan: notifikasi push, voting musyawarah, surat pengantar, jadwal ronda, tombol darurat, dan ekspor laporan kas bulanan (PDF). Usulan dari warga dan pengurus RT sangat diterima lewat **Issues**.
+v1.1 sedang diuji di lapangan. Yang masih dipertimbangkan: voting musyawarah, rencana anggaran kegiatan, tombol darurat, jadwal ronda, surat pengantar, dan inventaris RT. Usulan dari warga dan pengurus RT sangat diterima lewat **Issues**.
 
 ## Kontribusi
 

@@ -13,9 +13,13 @@ expect() { # expect "<desc>" "<jq filter yang harus true>" "<json>"
 
 cat > /tmp/rt_config.php <<EOF
 <?php return ['db_host'=>'${DB_HOST}','db_name'=>'${DB_NAME}','db_user'=>'${DB_USER}','db_pass'=>'${DB_PASS}',
-'base_url'=>'$B/','setup_key'=>'kunci-tes','apk_url'=>'$B/x.apk','timezone'=>'Asia/Jakarta'];
+'base_url'=>'$B/','setup_key'=>'kunci-tes','apk_url'=>'$B/x.apk','timezone'=>'Asia/Jakarta',
+'notif_log'=>'/tmp/rt_notif.log','pengingat_tanggal'=>0];
 EOF
 cp /tmp/rt_config.php config.php
+: > /tmp/rt_notif.log
+# notif_terakhir "<judul mengandung>" → baris JSON notifikasi terakhir yang cocok
+notif() { grep -F "$1" /tmp/rt_notif.log | tail -1; }
 mkdir -p uploads
 php -S 127.0.0.1:8099 -t . >/tmp/php-server.log 2>&1 &
 SRV=$!
@@ -109,6 +113,9 @@ R=$(get "$WT" "$B/api/beranda.php"); expect "beranda: 1 belum dibaca" '.pengumum
 R=$(get "$WT" "$B/api/pengumuman.php?aksi=detail&id=$PID"); expect "warga baca (tanpa daftar nama)" '.pengumuman.dibaca==2 and (.pengumuman|has("pembaca")|not)' "$R"
 R=$(get "$KT" "$B/api/pengumuman.php?aksi=detail&id=$PID"); expect "ketua lihat nama pembaca" '(.pengumuman.pembaca|length)==2' "$R"
 R=$(get "$WT" "$B/api/beranda.php"); expect "beranda: 0 belum dibaca" '.pengumuman_belum_dibaca==0' "$R"
+KID_=$(get "$KT" "$B/api/auth.php?aksi=saya" | jq .saya.id)
+sleep 0.3; R=$(notif "Kerja bakti"); expect "notif pengumuman → 2 warga, bukan penulis, buka info/ID" \
+  "(.ke|length)==2 and (.ke|index($KID_))==null and .buka==\"info/$PID\" and (.judul|test(\"PENTING\"))" "$R"
 
 echo "== Laporan"
 R=$(post "$WT" "$B/api/laporan.php?aksi=tambah" -F kategori=lampu -F 'lokasi=Depan Blok A'); expect "laporan tanpa foto ditolak" '.ok==false' "$R"
@@ -127,6 +134,30 @@ expect "reset PIN" '(.pin_sementara|length)==6' "$R"
 R=$(get "$WT" "$B/api/beranda.php"); expect "sesi lama hangus setelah reset" '.ok==false' "$R"
 for i in 1 2 3 4 5; do curl -s -X POST "$B/api/auth.php?aksi=masuk" -d hp=081200000002 -d pin=000001 >/dev/null; done
 R=$(curl -s -X POST "$B/api/auth.php?aksi=masuk" -d hp=081200000002 -d pin=$TMP); expect "terkunci setelah 5x salah" '.ok==false' "$R"
+
+echo "== v1.1: notifikasi, pengingat iuran, rekap"
+R=$(post "$WT" "$B/api/auth.php?aksi=perangkat" -d fcm_token=tokenHP-A); expect "daftar perangkat (tanpa sesi lama: 401)" '.ok==false' "$R"
+WT=$(curl -s -X POST "$B/api/auth.php?aksi=masuk" -d hp=081200000003 -d pin=975310 | jq -r .token)   # pakai bendahara
+R=$(post "$WT" "$B/api/auth.php?aksi=perangkat" -d fcm_token=tokenHP-A); expect "daftar perangkat" '.ok' "$R"
+R=$(post "$WT" "$B/api/auth.php?aksi=perangkat" -d fcm_token=tokenHP-A); expect "daftar ulang token sama (upsert)" '.ok' "$R"
+sleep 0.3; R=$(notif "Kas keluar"); expect "notif kas keluar ke semua kecuali pencatat" '(.ke|length)==2 and .buka=="kas"' "$R"
+R=$(notif "Iuran"); expect "notif iuran lunas ke warga rumah yang dicatat" '(.ke|length)>=1 and .buka=="kas/iuran"' "$R"
+R=$(notif "Laporan baru"); expect "notif laporan baru ke pengurus" '(.ke|length)==2' "$R"
+R=$(notif "Laporanmu selesai"); expect "notif status laporan ke pelapor saja" "(.ke==[$WID])" "$R"
+R=$(post "$BT" "$B/api/kas.php?aksi=iuran_ingatkan" -d periode=$P); expect "pengingat iuran (1 rumah belum bayar)" '.rumah==1' "$R"
+R=$(post "$BT" "$B/api/kas.php?aksi=iuran_ingatkan" -d periode=$P); expect "pengingat kedua <3 hari ditolak" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/kas.php?aksi=iuran_ingatkan" -d periode=$(date -d '-1 month' +%Y-%m)); expect "pengingat bulan lalu (3 rumah)" '.rumah==3' "$R"
+R=$(get "$BT" "$B/api/kas.php?aksi=iuran&periode=$P"); expect "info pengingat terakhir untuk pengurus" '.pengingat_terakhir.jumlah_rumah==1' "$R"
+R=$(post "$KT" "$B/api/kas.php?aksi=iuran_ingatkan" -d periode=$P); expect "ketua pun kena batas 3 hari" '.ok==false' "$R"
+R=$(get "$BT" "$B/api/kas.php?aksi=rekap&periode=$P"); expect "rekap: saldo awal 0, akhir = saldo, koreksi 1" \
+  '.rekap.saldo_awal==0 and .rekap.saldo_akhir==600000 and .rekap.masuk==600000 and .rekap.keluar==0 and .rekap.jumlah_koreksi==1 and .rt=="RT 05 / RW 12"' "$R"
+post "$BT" "$B/api/kas.php?aksi=tambah" -F jenis=keluar -F kategori=perbaikan -F nominal=100000 -F 'keterangan=Lampu jalan' -F foto_nota=@/tmp/nota.png >/dev/null
+R=$(get "$KT" "$B/api/kas.php?aksi=rekap&periode=$P"); expect "rekap: pengeluaran + kategori" \
+  '.rekap.keluar==100000 and .rekap.saldo_akhir==500000 and (.rekap.pengeluaran|length)==1 and .rekap.pengeluaran[0].ada_nota and .rekap.kategori.keluar[0].kategori=="perbaikan"' "$R"
+OUT=$(RT_CONFIG=$PWD/config.php php cron_pengingat.php 2>&1); echo "$OUT" | grep -q "Bukan jadwal" && ok "cron: diam bila bukan tanggalnya" || bad "cron: $OUT"
+OUT=$(RT_CONFIG=$PWD/config.php php cron_pengingat.php --paksa 2>&1); echo "$OUT" | grep -q "RT 05" && ok "cron --paksa jalan" || bad "cron paksa: $OUT"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$B/cron_pengingat.php")" = 403 ] && ok "cron tidak bisa dibuka lewat browser" || bad "cron terbuka di web"
+R=$(post "$WT" "$B/api/auth.php?aksi=keluar" -d fcm_token=tokenHP-A); expect "keluar + hapus perangkat" '.ok' "$R"
 
 echo "== Keamanan akses file"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/_core.php")" != 500 ] && ok "_core.php tidak error saat diakses langsung" || bad "_core.php 500"

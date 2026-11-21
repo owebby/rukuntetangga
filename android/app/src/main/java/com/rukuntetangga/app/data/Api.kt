@@ -30,6 +30,9 @@ object Sesi {
     var token: String?
         get() = appCtx.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString("token", null)
         set(v) { appCtx.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putString("token", v).apply() }
+    var fcm: String?
+        get() = appCtx.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString("fcm", null)
+        set(v) { appCtx.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putString("fcm", v).apply() }
 }
 
 /**

@@ -60,3 +60,60 @@ function ringkasIuran(int $rt, string $periode, int $rumahSaya): array
         'rumah_saya_lunas' => in_array($rumahSaya, $lunas, true),
     ];
 }
+
+/**
+ * Kirim pengingat PRIBADI ke warga di rumah yang belum bayar iuran periode tsb.
+ * Anti-spam: bila sudah ada pengingat < 3 hari untuk periode ini → lewati.
+ * Mengembalikan ['rumah' => jumlah rumah diingatkan] atau ['lewati' => alasan].
+ */
+function kirimPengingatIuran(int $rt, string $periode, ?int $oleh): array
+{
+    $st = db()->prepare('SELECT pada FROM pengingat_iuran WHERE rt_id = ? AND periode = ? AND pada > DATE_SUB(NOW(), INTERVAL 3 DAY) ORDER BY id DESC LIMIT 1');
+    $st->execute([$rt, $periode]);
+    if ($terakhir = $st->fetchColumn()) return ['lewati' => 'Pengingat untuk periode ini sudah dikirim pada ' . substr($terakhir, 0, 16) . '. Tunggu 3 hari sebelum mengingatkan lagi.'];
+
+    $lunas = rumahLunas($rt, $periode);
+    $st = db()->prepare('SELECT id FROM rumah WHERE rt_id = ? AND aktif = 1');
+    $st->execute([$rt]);
+    $belum = array_values(array_diff(array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN)), $lunas));
+    if (!$belum) return ['lewati' => 'Semua rumah sudah lunas. Tidak ada yang perlu diingatkan.'];
+
+    $st = db()->prepare('SELECT iuran_nominal FROM rt WHERE id = ?');
+    $st->execute([$rt]);
+    $nom = (int)$st->fetchColumn();
+    antreNotif(wargaRumah($belum), '🧾 Pengingat iuran ' . namaBulan($periode),
+        'Iuran rumahmu' . ($nom ? ' (' . rupiahTeks($nom) . ')' : '') . ' belum tercatat. Abaikan bila sudah membayar ke bendahara.',
+        'kas/iuran');
+    db()->prepare('INSERT INTO pengingat_iuran (rt_id, periode, jumlah_rumah, oleh) VALUES (?, ?, ?, ?)')
+        ->execute([$rt, $periode, count($belum), $oleh]);
+    return ['rumah' => count($belum)];
+}
+
+/** Rekap satu bulan untuk dibagikan (gambar di app). */
+function rekapBulan(int $rt, string $periode): array
+{
+    $awalBulan = $periode . '-01';
+    $q = function (string $sql, array $arg) { $st = db()->prepare($sql); $st->execute($arg); return $st; };
+    $batal = 'NOT EXISTS (SELECT 1 FROM kas_koreksi k WHERE k.transaksi_id = t.id)';
+    $saldoAwal = (int)$q("SELECT COALESCE(SUM(CASE WHEN jenis='masuk' THEN nominal ELSE -nominal END),0)
+        FROM kas_transaksi t WHERE rt_id = ? AND tanggal < ? AND $batal", [$rt, $awalBulan])->fetchColumn();
+    $perKat = $q("SELECT jenis, kategori, SUM(nominal) AS total, COUNT(*) AS n FROM kas_transaksi t
+        WHERE rt_id = ? AND DATE_FORMAT(tanggal, '%Y-%m') = ? AND $batal GROUP BY jenis, kategori ORDER BY total DESC", [$rt, $periode])->fetchAll();
+    $keluar = $q("SELECT tanggal, kategori, nominal, keterangan, (foto_nota IS NOT NULL) AS ada_nota FROM kas_transaksi t
+        WHERE rt_id = ? AND jenis = 'keluar' AND DATE_FORMAT(tanggal, '%Y-%m') = ? AND $batal ORDER BY tanggal, id", [$rt, $periode])->fetchAll();
+    $jmlKoreksi = (int)$q("SELECT COUNT(*) FROM kas_transaksi t JOIN kas_koreksi k ON k.transaksi_id = t.id
+        WHERE t.rt_id = ? AND DATE_FORMAT(t.tanggal, '%Y-%m') = ?", [$rt, $periode])->fetchColumn();
+    $masuk = $kel = 0;
+    $kat = ['masuk' => [], 'keluar' => []];
+    foreach ($perKat as $r) {
+        $kat[$r['jenis']][] = ['kategori' => $r['kategori'], 'total' => (int)$r['total'], 'jumlah' => (int)$r['n']];
+        if ($r['jenis'] === 'masuk') $masuk += (int)$r['total']; else $kel += (int)$r['total'];
+    }
+    return [
+        'periode' => $periode, 'saldo_awal' => $saldoAwal, 'masuk' => $masuk, 'keluar' => $kel,
+        'saldo_akhir' => $saldoAwal + $masuk - $kel, 'kategori' => $kat,
+        'pengeluaran' => array_map(fn($r) => ['tanggal' => $r['tanggal'], 'kategori' => $r['kategori'],
+            'nominal' => (int)$r['nominal'], 'keterangan' => $r['keterangan'], 'ada_nota' => (bool)$r['ada_nota']], $keluar),
+        'jumlah_koreksi' => $jmlKoreksi,
+    ];
+}

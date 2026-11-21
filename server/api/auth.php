@@ -71,8 +71,23 @@ switch (aksi()) {
 
     case 'keluar': {
         wajibMetode('POST');
-        saya();
+        $me = saya();
         db()->prepare('DELETE FROM sesi WHERE token_hash = ?')->execute([hash('sha256', tokenDariHeader())]);
+        // HP ini berhenti menerima notifikasi akun tsb.
+        $fcm = trim((string)(input()['fcm_token'] ?? ''));
+        if ($fcm !== '') db()->prepare('DELETE FROM perangkat WHERE fcm_token = ? AND warga_id = ?')->execute([$fcm, $me['id']]);
+        balas();
+    }
+
+    // POST {fcm_token} — daftarkan HP untuk menerima notifikasi (v1.1)
+    case 'perangkat': {
+        wajibMetode('POST');
+        $me = saya();
+        $fcm = teks('fcm_token', 255);
+        // Token yang sama bisa berpindah akun (HP dipakai bergantian) → ambil alih.
+        db()->prepare('INSERT INTO perangkat (fcm_token, warga_id) VALUES (?, ?)
+                       ON DUPLICATE KEY UPDATE warga_id = VALUES(warga_id), diperbarui = NOW()')
+            ->execute([$fcm, $me['id']]);
         balas();
     }
 

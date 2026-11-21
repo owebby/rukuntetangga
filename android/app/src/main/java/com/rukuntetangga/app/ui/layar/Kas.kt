@@ -13,11 +13,14 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
@@ -30,7 +33,9 @@ import com.rukuntetangga.app.data.str
 import com.rukuntetangga.app.data.strOrNull
 import com.rukuntetangga.app.ui.*
 import com.rukuntetangga.app.util.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 
@@ -51,10 +56,31 @@ fun LayarKas(saya: Saya, buka: (String) -> Unit) {
     var periode by rememberSaveable { mutableStateOf(periodeSekarang()) }
     val (state, ulang) = rememberMuat(periode) { Api.get("kas.php", "daftar", mapOf("periode" to periode)) }
     var detail by remember { mutableStateOf<JSONObject?>(null) }
+    // v1.1: bagikan rekap bulan ini sebagai gambar (mis. ke grup WA RT)
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var sibukRekap by remember { mutableStateOf(false) }
+    var galatRekap by remember { mutableStateOf<String?>(null) }
+    fun bagikanRekap() = scope.launch {
+        sibukRekap = true
+        try {
+            val d = Api.get("kas.php", "rekap", mapOf("periode" to periode))
+            val bmp = withContext(Dispatchers.Default) { gambarRekap(d) }
+            bagikanGambar(ctx, bmp, "rekap_kas_$periode",
+                "Laporan kas ${d.str("rt")} bulan ${namaPeriode(periode)}. Detail & foto nota bisa dilihat di aplikasi Rukun Tetangga.")
+        } catch (e: ApiException) { galatRekap = e.message } catch (e: Exception) { galatRekap = "Gagal membuat gambar rekap." }
+        sibukRekap = false
+    }
 
     Halaman(
         "Kas RT",
-        aksi = { TextButton(onClick = { buka("kas/iuran") }) { Text("Iuran", color = Warna.Hitam) } },
+        aksi = {
+            TextButton(onClick = { bagikanRekap() }, enabled = !sibukRekap) {
+                Icon(Icons.Default.Share, null, Modifier.size(18.dp), tint = Warna.Hitam); Spacer(Modifier.width(4.dp))
+                Text(if (sibukRekap) "…" else "Rekap", color = Warna.Hitam)
+            }
+            TextButton(onClick = { buka("kas/iuran") }) { Text("Iuran", color = Warna.Hitam) }
+        },
         fab = {
             if (saya.bisaKas) ExtendedFloatingActionButton(
                 onClick = { buka("kas/tambah") }, containerColor = Warna.Hitam, contentColor = Warna.Putih,
@@ -95,6 +121,10 @@ fun LayarKas(saya: Saya, buka: (String) -> Unit) {
                 }
             }
         }
+    }
+    galatRekap?.let {
+        AlertDialog(onDismissRequest = { galatRekap = null }, containerColor = Warna.Putih, text = { Text(it) },
+            confirmButton = { TextButton(onClick = { galatRekap = null }) { Text("OK", color = Warna.Hitam) } })
     }
     detail?.let { t -> DialogTransaksi(t, bisaKoreksi = saya.bisaKas, tutup = { detail = null }, onDikoreksi = { detail = null; ulang() }) }
 }
@@ -300,6 +330,34 @@ fun LayarIuran(saya: Saya, kembali: () -> Unit) {
                                         fontSize = 13.sp, color = if (lunas) Warna.Masuk else Warna.TeksSekunder)
                                 }
                             }
+                        }
+                        // v1.1: ingatkan rumah yang belum bayar (pesan pribadi ke HP masing-masing)
+                        val belum = rumah.count { !it.getBoolean("lunas") }
+                        if (bisaCatat && belum > 0 && pilih.isEmpty()) item {
+                            Spacer(Modifier.height(12.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    scope.launch {
+                                        sibuk = true
+                                        try {
+                                            val res = Api.postForm("kas.php", "iuran_ingatkan", mapOf("periode" to periode))
+                                            pesan = "Pengingat terkirim ke ${res.getInt("rumah")} rumah."; ulang()
+                                        } catch (e: ApiException) { pesan = e.message }
+                                        sibuk = false
+                                    }
+                                },
+                                enabled = !sibuk, modifier = Modifier.fillMaxWidth().height(50.dp), shape = MaterialTheme.shapes.small,
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Warna.Hitam),
+                            ) {
+                                Icon(Icons.Default.NotificationsActive, null); Spacer(Modifier.width(8.dp))
+                                Text("Ingatkan $belum rumah yang belum bayar")
+                            }
+                            val pt = d.optJSONObject("pengingat_terakhir")
+                            Text(
+                                if (pt != null) "Terakhir diingatkan ${tanggal(pt.str("pada"), true)} (${pt.getInt("jumlah_rumah")} rumah). Pesan dikirim pribadi, tidak diumumkan."
+                                else "Pesan dikirim pribadi ke HP warga rumah tsb, tidak diumumkan ke semua.",
+                                fontSize = 12.sp, color = Warna.TeksSekunder, modifier = Modifier.padding(top = 6.dp),
+                            )
                         }
                         if (bisaCatat && pilih.isNotEmpty()) item {
                             Spacer(Modifier.height(12.dp))

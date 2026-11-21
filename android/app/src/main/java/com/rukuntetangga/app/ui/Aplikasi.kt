@@ -1,5 +1,10 @@
 package com.rukuntetangga.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -12,6 +17,9 @@ import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import com.rukuntetangga.app.Notif
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -36,7 +44,7 @@ data class Saya(val id: Int, val nama: String, val peran: String, val rumah: Str
 }
 
 @Composable
-fun AplikasiRT(kodeTautan: String?, onKodeDipakai: () -> Unit) {
+fun AplikasiRT(kodeTautan: String?, onKodeDipakai: () -> Unit, ruteNotif: String? = null, onRuteDipakai: () -> Unit = {}) {
     var masuk by remember { mutableStateOf(Sesi.token != null) }
     DisposableEffect(Unit) {
         Api.onSesiHabis = { masuk = false }
@@ -50,7 +58,8 @@ fun AplikasiRT(kodeTautan: String?, onKodeDipakai: () -> Unit) {
             Saya(s.getInt("id"), s.str("nama"), s.str("peran"), s.str("rumah_label"), s.str("rt_nama"))
         }
         IsiMuat(state, ulang) { saya ->
-            Utama(saya = saya, onKeluar = { Sesi.token = null; masuk = false }, muatUlangProfil = ulang)
+            Utama(saya = saya, onKeluar = { Sesi.token = null; masuk = false }, muatUlangProfil = ulang,
+                ruteNotif = ruteNotif, onRuteDipakai = onRuteDipakai)
         }
     }
 }
@@ -82,8 +91,28 @@ private val TAB = listOf(
 )
 
 @Composable
-private fun Utama(saya: Saya, onKeluar: () -> Unit, muatUlangProfil: () -> Unit) {
+private fun Utama(
+    saya: Saya, onKeluar: () -> Unit, muatUlangProfil: () -> Unit,
+    ruteNotif: String?, onRuteDipakai: () -> Unit,
+) {
     val nav = rememberNavController()
+    val ctx = LocalContext.current
+
+    // v1.1 Notifikasi: minta izin (Android 13+) lalu daftarkan HP ke server.
+    val izin = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { Notif.daftarkanHp(ctx) }
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) izin.launch(Manifest.permission.POST_NOTIFICATIONS)
+        else Notif.daftarkanHp(ctx)
+    }
+    // Buka layar sesuai notifikasi yang diketuk.
+    LaunchedEffect(ruteNotif) {
+        val r = ruteNotif ?: return@LaunchedEffect
+        try { if (TAB.any { it.rute == r }) pindahTab(nav, r) else nav.navigate(r) } catch (_: Exception) {}
+        onRuteDipakai()
+    }
+
     val rute = nav.currentBackStackEntryAsState().value?.destination?.route
     Scaffold(
         containerColor = Warna.Putih,

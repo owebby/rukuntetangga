@@ -2,6 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="false"
@@ -28,6 +29,14 @@
                 <data android:scheme="rukuntetangga" android:host="gabung" />
             </intent-filter>
         </activity>
+
+        <!-- Penerima notifikasi Firebase (v1.1) -->
+        <service android:name=".LayananPesan" android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_notif" />
 
         <!-- Untuk foto kamera & berbagi gambar QR -->
         <provider
