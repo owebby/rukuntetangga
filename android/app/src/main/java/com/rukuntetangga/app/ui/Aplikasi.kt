@@ -154,6 +154,19 @@ private fun Utama(
                 composable("laporan/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
                     LayarDetailLaporan(it.arguments!!.getInt("id"), kembali = { nav.popBackStack() })
                 }
+                // v1.2
+                composable("musyawarah") { LayarMusyawarah(buka = { nav.navigate(it) }, kembali = { nav.popBackStack() }) }
+                composable("musyawarah/buat") { LayarBuatMusyawarah(kembali = { nav.popBackStack() }) }
+                composable("musyawarah/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
+                    LayarDetailMusyawarah(it.arguments!!.getInt("id"), kembali = { nav.popBackStack() })
+                }
+                composable("kegiatan") { LayarKegiatan(buka = { nav.navigate(it) }, kembali = { nav.popBackStack() }) }
+                composable("kegiatan/buat") { LayarBuatKegiatan(kembali = { nav.popBackStack() }) }
+                composable("kegiatan/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
+                    LayarDetailKegiatan(it.arguments!!.getInt("id"), kembali = { nav.popBackStack() })
+                }
+                composable("darurat") { LayarDarurat(saya, kembali = { nav.popBackStack() }) }
+                composable("ronda") { LayarRonda(kembali = { nav.popBackStack() }) }
                 composable("akun") { LayarAkun(saya, buka = { nav.navigate(it) }, onKeluar = onKeluar) }
                 composable("akun/pin") { LayarGantiPin(kembali = { nav.popBackStack() }) }
                 composable("pengurus/rumah") { LayarRumah(saya, kembali = { nav.popBackStack() }) }

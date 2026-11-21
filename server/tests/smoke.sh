@@ -14,7 +14,7 @@ expect() { # expect "<desc>" "<jq filter yang harus true>" "<json>"
 cat > /tmp/rt_config.php <<EOF
 <?php return ['db_host'=>'${DB_HOST}','db_name'=>'${DB_NAME}','db_user'=>'${DB_USER}','db_pass'=>'${DB_PASS}',
 'base_url'=>'$B/','setup_key'=>'kunci-tes','apk_url'=>'$B/x.apk','timezone'=>'Asia/Jakarta',
-'notif_log'=>'/tmp/rt_notif.log','pengingat_tanggal'=>0];
+'notif_log'=>'/tmp/rt_notif.log','pengingat_tanggal'=>0,'uji_ronda_jam_bebas'=>true];
 EOF
 cp /tmp/rt_config.php config.php
 : > /tmp/rt_notif.log
@@ -158,6 +158,73 @@ OUT=$(RT_CONFIG=$PWD/config.php php cron_pengingat.php 2>&1); echo "$OUT" | grep
 OUT=$(RT_CONFIG=$PWD/config.php php cron_pengingat.php --paksa 2>&1); echo "$OUT" | grep -q "RT 05" && ok "cron --paksa jalan" || bad "cron paksa: $OUT"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/cron_pengingat.php")" = 403 ] && ok "cron tidak bisa dibuka lewat browser" || bad "cron terbuka di web"
 R=$(post "$WT" "$B/api/auth.php?aksi=keluar" -d fcm_token=tokenHP-A); expect "keluar + hapus perangkat" '.ok' "$R"
+
+echo "== v1.2: musyawarah"
+KODE3=$(get "$KT" "$B/api/pengurus.php?aksi=rumah_daftar" | jq -r '.rumah[]|select(.label=="Blok A No. 3").kode')
+T3=$(curl -s -X POST "$B/api/auth.php?aksi=gabung" -d kode=$KODE3 -d 'nama=Pak Tiga' -d hp=081200000009 -d pin=482915 | jq -r .token)
+W3=$(get "$T3" "$B/api/auth.php?aksi=saya" | jq .saya.id)
+J='Content-Type: application/json'
+R=$(post "$T3" "$B/api/musyawarah.php?aksi=buat" -H "$J" -d '{"judul":"x","keterangan":"y","pilihan":["a","b"],"hari":3}'); expect "warga tak bisa buat voting" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/musyawarah.php?aksi=buat" -H "$J" -d '{"judul":"x","keterangan":"y","pilihan":["a"],"hari":3}'); expect "voting 1 pilihan ditolak" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/musyawarah.php?aksi=buat" -H "$J" -d '{"judul":"Iuran naik jadi 60rb?","keterangan":"Untuk gaji satpam.","pilihan":["Setuju","Tidak setuju","Abstain"],"hari":7}')
+expect "ketua buat voting" '.ok' "$R"; VID=$(echo "$R" | jq .id)
+sleep 0.3; R=$(notif "Musyawarah"); expect "notif voting ke semua kecuali pembuat" "(.ke|index($KID_))==null and .buka==\"musyawarah/$VID\"" "$R"
+R=$(get "$T3" "$B/api/musyawarah.php?aksi=detail&id=$VID"); expect "hasil tersembunyi sebelum rumahmu memilih" '.voting.hasil_terlihat==false and .voting.pilihan[0].suara==null' "$R"
+P1=$(echo "$R" | jq '.voting.pilihan[0].id'); P2=$(echo "$R" | jq '.voting.pilihan[1].id'); P3=$(echo "$R" | jq '.voting.pilihan[2].id')
+R=$(get "$KT" "$B/api/beranda.php"); expect "beranda: 1 musyawarah belum dipilih" '.voting_belum_dipilih==1' "$R"
+R=$(post "$T3" "$B/api/musyawarah.php?aksi=pilih" -d id=$VID -d pilihan_id=$P1); expect "warga memilih" '.ok' "$R"
+R=$(post "$T3" "$B/api/musyawarah.php?aksi=pilih" -d id=$VID -d pilihan_id=999999); expect "pilihan asing ditolak" '.ok==false' "$R"
+R=$(post "$BT" "$B/api/musyawarah.php?aksi=pilih" -d id=$VID -d pilihan_id=$P2)
+R=$(post "$BT" "$B/api/musyawarah.php?aksi=pilih" -d id=$VID -d pilihan_id=$P3); expect "ganti pilihan selama dibuka" '.ok' "$R"
+R=$(get "$T3" "$B/api/musyawarah.php?aksi=detail&id=$VID"); expect "1 rumah 1 suara, hasil terlihat setelah memilih" \
+  ".voting.hasil_terlihat and .voting.rumah_memilih==2 and .voting.rumah_total==3 and .voting.pilihan_rumah_saya==$P1 and .voting.pilihan[1].suara==0 and .voting.pilihan[2].suara==1" "$R"
+R=$(post "$BT" "$B/api/musyawarah.php?aksi=tutup" -d id=$VID); expect "bendahara tak bisa menutup" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/musyawarah.php?aksi=tutup" -d id=$VID); expect "ketua menutup lebih awal" '.ok' "$R"
+R=$(post "$KT" "$B/api/musyawarah.php?aksi=pilih" -d id=$VID -d pilihan_id=$P1); expect "memilih setelah ditutup ditolak" '.ok==false' "$R"
+R=$(get "$KT" "$B/api/musyawarah.php?aksi=daftar"); expect "daftar: ditutup & hasil terlihat (walau ketua belum memilih)" '.voting[0].ditutup and .voting[0].ditutup_awal and .voting[0].hasil_terlihat' "$R"
+
+echo "== v1.2: rencana anggaran kegiatan"
+R=$(post "$T3" "$B/api/kegiatan.php?aksi=buat" -H "$J" -d '{"nama":"x","tanggal":"2026-12-01","pos":[{"uraian":"a","nominal":1}]}'); expect "warga tak bisa buat kegiatan" '.ok==false' "$R"
+R=$(post "$BT" "$B/api/kegiatan.php?aksi=buat" -H "$J" -d '{"nama":"Lomba 17-an","keterangan":"Lomba anak","tanggal":"2026-08-17","pos":[{"uraian":"Konsumsi","nominal":500000},{"uraian":"Hadiah","nominal":300000}]}')
+expect "bendahara buat rencana" '.ok' "$R"; GID=$(echo "$R" | jq .id)
+sleep 0.3; R=$(notif "Rencana kegiatan"); expect "notif rencana + total anggaran" '(.isi|test("800.000"))' "$R"
+R=$(post "$BT" "$B/api/kas.php?aksi=tambah" -F jenis=keluar -F kategori=kegiatan -F nominal=200000 -F 'keterangan=Beli snack' -F kegiatan_id=$GID -F foto_nota=@/tmp/nota.png)
+expect "kas keluar ditautkan ke kegiatan" '.ok' "$R"
+R=$(get "$T3" "$B/api/kegiatan.php?aksi=detail&id=$GID"); expect "realisasi vs rencana" '.kegiatan.anggaran==800000 and .kegiatan.terpakai==200000 and (.kegiatan.transaksi|length)==1 and (.kegiatan.pos|length)==2' "$R"
+R=$(get "$T3" "$B/api/kas.php?aksi=daftar"); expect "transaksi kas menampilkan nama kegiatan" '[.transaksi[]|select(.kegiatan.nama=="Lomba 17-an")]|length==1' "$R"
+R=$(post "$BT" "$B/api/kegiatan.php?aksi=ubah_anggaran" -H "$J" -d "{\"id\":$GID,\"pos\":[{\"uraian\":\"Konsumsi\",\"nominal\":600000},{\"uraian\":\"Hadiah\",\"nominal\":300000}]}"); expect "ubah anggaran saat rencana" '.ok' "$R"
+R=$(post "$BT" "$B/api/kegiatan.php?aksi=status" -d id=$GID -d status=selesai); expect "rencana → selesai langsung ditolak" '.ok==false' "$R"
+R=$(post "$BT" "$B/api/kegiatan.php?aksi=status" -d id=$GID -d status=berjalan); expect "mulai berjalan" '.ok' "$R"
+R=$(post "$BT" "$B/api/kegiatan.php?aksi=ubah_anggaran" -H "$J" -d "{\"id\":$GID,\"pos\":[{\"uraian\":\"X\",\"nominal\":1}]}"); expect "anggaran terkunci saat berjalan" '.ok==false' "$R"
+R=$(post "$BT" "$B/api/kegiatan.php?aksi=status" -d id=$GID -d status=selesai); expect "selesai" '.ok' "$R"
+sleep 0.3; R=$(notif "Kegiatan selesai"); expect "notif selesai: anggaran vs terpakai" '(.isi|test("900.000")) and (.isi|test("200.000"))' "$R"
+R=$(post "$BT" "$B/api/kas.php?aksi=tambah" -F jenis=keluar -F kategori=kegiatan -F nominal=1000 -F keterangan=x -F kegiatan_id=$GID -F foto_nota=@/tmp/nota.png)
+expect "tautan ke kegiatan selesai ditolak" '.ok==false' "$R"
+
+echo "== v1.2: darurat"
+R=$(post "$T3" "$B/api/darurat.php?aksi=kirim" -d jenis=kebakaran -d 'catatan=Asap dari dapur'); expect "kirim sinyal darurat" '.ok' "$R"; DID=$(echo "$R" | jq .id)
+sleep 0.3; R=$(notif "KEBAKARAN"); expect "notif darurat ke semua kecuali pengirim, ada nama rumah" "(.ke|index($W3))==null and (.judul|test(\"Blok A No. 3\")) and (.ke|length)==3" "$R"
+R=$(get "$KT" "$B/api/beranda.php"); expect "beranda: darurat aktif" '(.darurat_aktif|length)==1' "$R"
+R=$(post "$KT" "$B/api/darurat.php?aksi=selesai" -d id=$DID); expect "pengurus tandai tertangani" '.ok' "$R"
+R=$(post "$KT" "$B/api/darurat.php?aksi=selesai" -d id=$DID); expect "tidak bisa ditandai dua kali" '.ok==false' "$R"
+post "$T3" "$B/api/darurat.php?aksi=kirim" -d jenis=medis >/dev/null; post "$T3" "$B/api/darurat.php?aksi=kirim" -d jenis=lainnya >/dev/null
+R=$(post "$T3" "$B/api/darurat.php?aksi=kirim" -d jenis=pencurian); expect "batas 3 sinyal per hari" '.ok==false' "$R"
+R=$(post "$T3" "$B/api/darurat.php?aksi=kontak_tambah" -d nama=Satpam -d nomor=0812); expect "warga tak bisa atur kontak" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/darurat.php?aksi=kontak_tambah" -d 'nama=Pos Satpam' -d 'nomor=0812-1111-2222'); expect "ketua tambah kontak" '.ok' "$R"
+R=$(get "$T3" "$B/api/darurat.php?aksi=daftar"); expect "riwayat darurat + kontak" '(.darurat|length)==3 and .kontak[0].nomor=="081211112222" and (.darurat[-1].selesai)' "$R"
+
+echo "== v1.2: ronda"
+if [ "$(date +%H)" -lt 12 ]; then HARI=$(date -d yesterday +%u); else HARI=$(date +%u); fi
+R=$(post "$T3" "$B/api/ronda.php?aksi=atur" -H "$J" -d "{\"hari\":$HARI,\"warga_ids\":[$W3]}"); expect "warga tak bisa atur jadwal" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/ronda.php?aksi=atur" -H "$J" -d "{\"hari\":$HARI,\"warga_ids\":[$W3]}"); expect "ketua atur regu malam ini" '.ok' "$R"
+sleep 0.3; R=$(notif "Jadwal ronda"); expect "notif ke petugas" "(.ke==[$W3])" "$R"
+R=$(get "$T3" "$B/api/ronda.php?aksi=ringkas"); expect "malam ini: 1 petugas, saya dijadwalkan" '(.malam_ini.petugas|length)==1 and .saya_jadwal and (.saya_hadir|not) and (.jadwal|length)==7' "$R"
+R=$(post "$T3" "$B/api/ronda.php?aksi=hadir"); expect "check-in ronda" '.ok' "$R"
+R=$(post "$T3" "$B/api/ronda.php?aksi=hadir"); expect "check-in ganda ditolak" '.ok==false' "$R"
+R=$(post "$BT" "$B/api/ronda.php?aksi=hadir"); expect "pengganti boleh check-in" '.ok' "$R"
+R=$(get "$KT" "$B/api/ronda.php?aksi=ringkas"); expect "petugas + pengganti tercatat" '(.malam_ini.petugas|length)==2 and ([.malam_ini.petugas[]|select(.pengganti)]|length)==1 and ([.malam_ini.petugas[]|select(.hadir)]|length)==2' "$R"
+OUT=$(RT_CONFIG=$PWD/config.php php cron_ronda.php 2>&1); echo "$OUT" | grep -qE "petugas diingatkan|Tidak ada jadwal" && ok "cron ronda jalan" || bad "cron ronda: $OUT"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$B/cron_ronda.php")" = 403 ] && ok "cron ronda tertutup dari browser" || bad "cron ronda terbuka"
 
 echo "== Keamanan akses file"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/_core.php")" != 500 ] && ok "_core.php tidak error saat diakses langsung" || bad "_core.php 500"

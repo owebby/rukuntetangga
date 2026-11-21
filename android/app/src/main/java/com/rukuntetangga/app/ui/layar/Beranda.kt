@@ -8,12 +8,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.HowToVote
+import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Sos
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -38,6 +46,30 @@ fun LayarBeranda(buka: (String) -> Unit) {
                     item {
                         Text(rt.str("nama"), fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         Text("Halo, ${saya.str("nama")} · ${saya.str("rumah")}", color = Warna.TeksSekunder)
+                        Spacer(Modifier.height(16.dp))
+                        // v1.2: sinyal darurat aktif selalu paling atas
+                        d.optJSONArray("darurat_aktif")?.objects()?.forEach { x ->
+                            Surface(color = Warna.Keluar, shape = MaterialTheme.shapes.medium,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).clickable { buka("darurat") }) {
+                                Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Filled.Warning, null, tint = Color.White)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column {
+                                        Text("DARURAT: ${labelDarurat(x.str("jenis"))}", color = Color.White, fontWeight = FontWeight.Bold)
+                                        Text("${x.str("nama")} · ${x.str("rumah")} · ${tanggal(x.str("dibuat_pada"), true)}",
+                                            color = Color.White, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        }
+                        // v1.2: menu fitur warga
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val vb = d.optInt("voting_belum_dipilih")
+                            MenuIkon("Musyawarah", Icons.Filled.HowToVote, Modifier.weight(1f), lencana = vb) { buka("musyawarah") }
+                            MenuIkon("Kegiatan", Icons.Filled.EventNote, Modifier.weight(1f)) { buka("kegiatan") }
+                            MenuIkon("Ronda", Icons.Filled.Shield, Modifier.weight(1f)) { buka("ronda") }
+                            MenuIkon("Darurat", Icons.Filled.Sos, Modifier.weight(1f), merah = true) { buka("darurat") }
+                        }
                         Spacer(Modifier.height(16.dp))
                         // Kartu kas: inti transparansi
                         Kartu(onClick = { buka("kas") }) {
@@ -120,6 +152,25 @@ fun BarisRingkas(judul: String, sub: String, titik: Boolean = false, lencana: St
                 Text(sub, fontSize = 12.sp, color = Warna.TeksSekunder)
             }
             if (lencana != null) Lencana(lencana)
+        }
+    }
+}
+
+private fun labelDarurat(j: String) = when (j) {
+    "kebakaran" -> "Kebakaran"; "pencurian" -> "Pencurian"; "medis" -> "Butuh bantuan medis"; else -> "Darurat"
+}
+
+/** v1.2: tombol menu kotak di Beranda. */
+@Composable
+private fun MenuIkon(teks: String, ikon: ImageVector, modifier: Modifier, lencana: Int = 0, merah: Boolean = false, onClick: () -> Unit) {
+    Surface(modifier = modifier.clickable(onClick = onClick), color = if (merah) Warna.Keluar.copy(alpha = 0.1f) else Warna.AbuMuda,
+        shape = MaterialTheme.shapes.medium) {
+        Column(Modifier.padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            BadgedBox(badge = { if (lencana > 0) Badge(containerColor = Warna.Keluar) { Text("$lencana") } }) {
+                Icon(ikon, null, tint = if (merah) Warna.Keluar else Warna.Hitam)
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(teks, fontSize = 11.sp, maxLines = 1, color = if (merah) Warna.Keluar else Warna.Hitam)
         }
     }
 }

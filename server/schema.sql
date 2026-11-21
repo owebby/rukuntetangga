@@ -173,3 +173,117 @@ CREATE TABLE IF NOT EXISTS pengingat_iuran (
   KEY idx_rt_periode (rt_id, periode),
   CONSTRAINT fk_ping_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------- MUSYAWARAH / VOTING (v1.2)
+-- 1 rumah = 1 suara. Isi pilihan tiap rumah RAHASIA, yang terbuka hanya jumlahnya.
+CREATE TABLE IF NOT EXISTS voting (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  rt_id       INT UNSIGNED NOT NULL,
+  judul       VARCHAR(150) NOT NULL,
+  keterangan  TEXT NOT NULL,
+  tutup_pada  DATETIME NOT NULL,
+  ditutup_oleh INT UNSIGNED NULL,               -- diisi bila ditutup lebih awal oleh ketua
+  dibuat_oleh INT UNSIGNED NOT NULL,
+  dibuat_pada DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_rt (rt_id, dibuat_pada),
+  CONSTRAINT fk_vot_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS voting_pilihan (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  voting_id   INT UNSIGNED NOT NULL,
+  teks        VARCHAR(100) NOT NULL,
+  KEY idx_vot (voting_id),
+  CONSTRAINT fk_vp_vot FOREIGN KEY (voting_id) REFERENCES voting(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS voting_suara (
+  voting_id   INT UNSIGNED NOT NULL,
+  rumah_id    INT UNSIGNED NOT NULL,
+  pilihan_id  INT UNSIGNED NOT NULL,
+  warga_id    INT UNSIGNED NOT NULL,            -- anggota rumah yang terakhir memilih
+  pada        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (voting_id, rumah_id),
+  CONSTRAINT fk_vs_vot FOREIGN KEY (voting_id) REFERENCES voting(id),
+  CONSTRAINT fk_vs_pil FOREIGN KEY (pilihan_id) REFERENCES voting_pilihan(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -------------------------------------- RENCANA ANGGARAN KEGIATAN (v1.2)
+CREATE TABLE IF NOT EXISTS kegiatan (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  rt_id       INT UNSIGNED NOT NULL,
+  nama        VARCHAR(120) NOT NULL,
+  keterangan  VARCHAR(500) NOT NULL DEFAULT '',
+  tanggal     DATE NOT NULL,
+  status      ENUM('rencana','berjalan','selesai','batal') NOT NULL DEFAULT 'rencana',
+  dibuat_oleh INT UNSIGNED NOT NULL,
+  dibuat_pada DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_rt (rt_id, tanggal),
+  CONSTRAINT fk_keg_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Pos anggaran. Terkunci begitu kegiatan berstatus 'berjalan'.
+CREATE TABLE IF NOT EXISTS kegiatan_anggaran (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  kegiatan_id INT UNSIGNED NOT NULL,
+  uraian      VARCHAR(120) NOT NULL,
+  nominal     INT UNSIGNED NOT NULL,
+  KEY idx_keg (kegiatan_id),
+  CONSTRAINT fk_ka_keg FOREIGN KEY (kegiatan_id) REFERENCES kegiatan(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Transaksi kas yang terkait kegiatan (tabel penghubung, kas_transaksi tidak diubah).
+CREATE TABLE IF NOT EXISTS kegiatan_transaksi (
+  transaksi_id INT UNSIGNED PRIMARY KEY,
+  kegiatan_id  INT UNSIGNED NOT NULL,
+  KEY idx_keg (kegiatan_id),
+  CONSTRAINT fk_kt_trx FOREIGN KEY (transaksi_id) REFERENCES kas_transaksi(id),
+  CONSTRAINT fk_kt_keg FOREIGN KEY (kegiatan_id) REFERENCES kegiatan(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------- DARURAT (v1.2)
+CREATE TABLE IF NOT EXISTS darurat (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  rt_id       INT UNSIGNED NOT NULL,
+  warga_id    INT UNSIGNED NOT NULL,
+  jenis       ENUM('kebakaran','pencurian','medis','lainnya') NOT NULL,
+  catatan     VARCHAR(200) NOT NULL DEFAULT '',
+  dibuat_pada DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  selesai_oleh INT UNSIGNED NULL,
+  selesai_pada DATETIME NULL,
+  KEY idx_rt (rt_id, dibuat_pada),
+  CONSTRAINT fk_dar_rt FOREIGN KEY (rt_id) REFERENCES rt(id),
+  CONSTRAINT fk_dar_warga FOREIGN KEY (warga_id) REFERENCES warga(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Kontak penting RT (pos satpam, puskesmas, dll), diatur ketua.
+CREATE TABLE IF NOT EXISTS kontak_rt (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  rt_id       INT UNSIGNED NOT NULL,
+  nama        VARCHAR(60) NOT NULL,
+  nomor       VARCHAR(20) NOT NULL,
+  KEY idx_rt (rt_id),
+  CONSTRAINT fk_kon_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------- RONDA (v1.2)
+-- Jadwal mingguan: hari 1 = Senin ... 7 = Minggu (malam hari tsb).
+CREATE TABLE IF NOT EXISTS ronda_jadwal (
+  rt_id       INT UNSIGNED NOT NULL,
+  hari        TINYINT UNSIGNED NOT NULL,
+  warga_id    INT UNSIGNED NOT NULL,
+  PRIMARY KEY (rt_id, hari, warga_id),
+  CONSTRAINT fk_rj_rt FOREIGN KEY (rt_id) REFERENCES rt(id),
+  CONSTRAINT fk_rj_warga FOREIGN KEY (warga_id) REFERENCES warga(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Kehadiran ronda. tanggal = tanggal MALAM ronda dimulai (lewat tengah malam tetap tanggal sebelumnya).
+CREATE TABLE IF NOT EXISTS ronda_hadir (
+  rt_id       INT UNSIGNED NOT NULL,
+  tanggal     DATE NOT NULL,
+  warga_id    INT UNSIGNED NOT NULL,
+  pada        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (tanggal, warga_id),
+  KEY idx_rt_tgl (rt_id, tanggal),
+  CONSTRAINT fk_rh_warga FOREIGN KEY (warga_id) REFERENCES warga(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

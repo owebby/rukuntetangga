@@ -142,6 +142,7 @@ private fun BarisTransaksi(t: JSONObject, onClick: () -> Unit) {
                     "${tanggal(t.str("tanggal"))} · ${label(LABEL_KATEGORI, t.str("kategori"))}",
                     fontSize = 12.sp, color = Warna.TeksSekunder,
                 )
+                t.optJSONObject("kegiatan")?.let { Text("Kegiatan: ${it.str("nama")}", fontSize = 12.sp, color = Warna.TeksSekunder) }
                 if (batal) Text("Dikoreksi", fontSize = 12.sp, color = Warna.Keluar, fontWeight = FontWeight.Medium)
             }
             Column(horizontalAlignment = Alignment.End) {
@@ -231,6 +232,9 @@ fun LayarTambahKas(kembali: () -> Unit) {
     var galat by remember { mutableStateOf<String?>(null) }
     val katMasuk = listOf("sumbangan", "kegiatan", "lainnya")
     val katKeluar = listOf("kebersihan", "keamanan", "perbaikan", "kegiatan", "sosial", "administrasi", "lainnya")
+    // v1.2: tautkan ke kegiatan (opsional)
+    var kegiatan by remember { mutableStateOf<String?>(null) }
+    val (kegState, _) = rememberMuat { Api.get("kegiatan.php", "aktif").getJSONArray("kegiatan").objects() }
 
     Halaman("Catat Kas", kembali = kembali) { pad ->
         Column(Modifier.padding(pad).padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
@@ -248,6 +252,14 @@ fun LayarTambahKas(kembali: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             Isian(ket, { ket = it.take(200) }, "Keterangan (mis. Beli 2 lampu jalan)")
             Spacer(Modifier.height(16.dp))
+            (kegState as? Muat.Ada)?.data?.takeIf { it.isNotEmpty() }?.let { list ->
+                Text("Untuk kegiatan (opsional)", fontSize = 14.sp, color = Warna.TeksSekunder)
+                Spacer(Modifier.height(8.dp))
+                PilihChip(listOf("" to "Tidak terkait") + list.map { it.getInt("id").toString() to it.str("nama") }, kegiatan ?: "") {
+                    kegiatan = it.ifEmpty { null }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
             PemilihFoto(foto, if (jenis == "keluar") "Foto nota / bukti (wajib)" else "Foto bukti (opsional)") { foto = it }
             PesanGalat(galat)
             Spacer(Modifier.height(20.dp))
@@ -258,7 +270,7 @@ fun LayarTambahKas(kembali: () -> Unit) {
                     try {
                         Api.postForm(
                             "kas.php", "tambah",
-                            mapOf("jenis" to jenis, "kategori" to kategori, "nominal" to nominal, "keterangan" to ket.trim(), "tanggal" to hariIni()),
+                            mapOf("jenis" to jenis, "kategori" to kategori, "nominal" to nominal, "keterangan" to ket.trim(), "tanggal" to hariIni(), "kegiatan_id" to kegiatan),
                             foto?.let { "foto_nota" to it },
                         )
                         kembali()

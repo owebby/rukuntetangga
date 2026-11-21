@@ -5,6 +5,8 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -25,6 +27,7 @@ import kotlinx.coroutines.launch
  */
 object Notif {
     private const val KANAL = "umum"
+    private const val KANAL_DARURAT = "darurat" // v1.2: suara alarm, bisa diatur terpisah oleh warga
     const val EXTRA_BUKA = "buka"
     private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -35,7 +38,18 @@ object Notif {
             val k = NotificationChannel(KANAL, "Kabar RT", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Pengumuman, kas, iuran, dan laporan warga"
             }
-            ctx.getSystemService(NotificationManager::class.java).createNotificationChannel(k)
+            val nm = ctx.getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(k)
+            val d = NotificationChannel(KANAL_DARURAT, "Darurat warga", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Sinyal darurat dari tetangga (kebakaran, pencurian, medis)"
+                setSound(
+                    RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build(),
+                )
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 600, 300, 600, 300, 600)
+            }
+            nm.createNotificationChannel(d)
         }
     }
 
@@ -59,14 +73,16 @@ object Notif {
         }
         val id = (System.currentTimeMillis() % Int.MAX_VALUE).toInt()
         val pi = PendingIntent.getActivity(ctx, id, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val n = NotificationCompat.Builder(ctx, KANAL)
+        val darurat = buka == "darurat"
+        val n = NotificationCompat.Builder(ctx, if (darurat) KANAL_DARURAT else KANAL)
             .setSmallIcon(R.drawable.ic_notif)
             .setContentTitle(judul)
             .setContentText(isi)
             .setStyle(NotificationCompat.BigTextStyle().bigText(isi))
             .setContentIntent(pi)
             .setAutoCancel(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(if (darurat) NotificationCompat.PRIORITY_MAX else NotificationCompat.PRIORITY_HIGH)
+            .setCategory(if (darurat) NotificationCompat.CATEGORY_ALARM else NotificationCompat.CATEGORY_MESSAGE)
             .build()
         try { NotificationManagerCompat.from(ctx).notify(id, n) } catch (_: SecurityException) { /* izin notif ditolak */ }
     }

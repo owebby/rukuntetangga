@@ -20,15 +20,19 @@ function barisTransaksi(array $r): array
         'foto_nota' => urlFoto($r['foto_nota']),
         'dicatat_oleh' => $r['pencatat'],
         'dibuat_pada' => $r['dibuat_pada'],
+        'kegiatan' => $r['keg_id'] === null ? null : ['id' => (int)$r['keg_id'], 'nama' => $r['keg_nama']],
         'koreksi' => $r['k_alasan'] === null ? null : [
             'alasan' => $r['k_alasan'], 'oleh' => $r['k_oleh'], 'pada' => $r['k_pada'],
         ],
     ];
 }
 
-const SQL_TRANSAKSI = 'SELECT t.*, w.nama AS pencatat, k.alasan AS k_alasan, kw.nama AS k_oleh, k.pada AS k_pada
+const SQL_TRANSAKSI = 'SELECT t.*, w.nama AS pencatat, k.alasan AS k_alasan, kw.nama AS k_oleh, k.pada AS k_pada,
+            kg.id AS keg_id, kg.nama AS keg_nama
        FROM kas_transaksi t
        JOIN warga w ON w.id = t.dicatat_oleh
+       LEFT JOIN kegiatan_transaksi kt ON kt.transaksi_id = t.id
+       LEFT JOIN kegiatan kg ON kg.id = kt.kegiatan_id
        LEFT JOIN kas_koreksi k ON k.transaksi_id = t.id
        LEFT JOIN warga kw ON kw.id = k.oleh';
 
@@ -72,12 +76,20 @@ switch (aksi()) {
         $d = DateTime::createFromFormat('Y-m-d', $tgl);
         if (!$d || $d->format('Y-m-d') !== $tgl) gagal('Tanggal tidak valid.');
         if ($tgl > date('Y-m-d')) gagal('Tanggal tidak boleh di masa depan.');
+        // v1.2: opsional ditautkan ke kegiatan yang masih rencana/berjalan.
+        $kegId = (int)(input()['kegiatan_id'] ?? 0);
+        if ($kegId) {
+            $st = db()->prepare("SELECT 1 FROM kegiatan WHERE id = ? AND rt_id = ? AND status IN ('rencana','berjalan')");
+            $st->execute([$kegId, $me['rt_id']]);
+            if (!$st->fetch()) gagal('Kegiatan tidak ditemukan atau sudah selesai.');
+        }
         // Transparansi: pengeluaran WAJIB ada foto nota/bukti.
         $foto = simpanFoto('foto_nota', $jenis === 'keluar');
         db()->prepare('INSERT INTO kas_transaksi (rt_id, jenis, kategori, nominal, keterangan, tanggal, foto_nota, dicatat_oleh)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
             ->execute([$me['rt_id'], $jenis, $kategori, $nominal, $ket, $tgl, $foto, $me['id']]);
         $id = (int)db()->lastInsertId();
+        if ($kegId) db()->prepare('INSERT INTO kegiatan_transaksi (transaksi_id, kegiatan_id) VALUES (?, ?)')->execute([$id, $kegId]);
         $saldo = saldoKas($me['rt_id']);
         // Transparansi: setiap pengeluaran dikabarkan ke semua warga.
         if ($jenis === 'keluar') {

@@ -19,7 +19,7 @@ android {
         minSdk = 24
         targetSdk = 35
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
-        versionName = "1.1.0"
+        versionName = "1.2.0"
         buildConfigField("String", "API_BASE", "\"$apiBase\"")
     }
 

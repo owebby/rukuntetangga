@@ -40,6 +40,17 @@ $laporanAktif = (int)$st->fetchColumn();
 
 $iuran = ringkasIuran($rt, $periode, $me['rumah_id']);
 
+// v1.2: musyawarah yang masih dibuka & belum dipilih rumah saya, darurat aktif, ronda malam ini
+$st = db()->prepare('SELECT COUNT(*) FROM voting v WHERE v.rt_id = ? AND v.ditutup_oleh IS NULL AND v.tutup_pada > NOW()
+                       AND NOT EXISTS (SELECT 1 FROM voting_suara s WHERE s.voting_id = v.id AND s.rumah_id = ?)');
+$st->execute([$rt, $me['rumah_id']]);
+$votingBelum = (int)$st->fetchColumn();
+$st = db()->prepare('SELECT d.id, d.jenis, d.dibuat_pada, w.nama, r.label AS rumah FROM darurat d JOIN warga w ON w.id = d.warga_id
+                       JOIN rumah r ON r.id = w.rumah_id
+                      WHERE d.rt_id = ? AND d.selesai_pada IS NULL AND d.dibuat_pada > DATE_SUB(NOW(), INTERVAL 1 DAY) ORDER BY d.id DESC');
+$st->execute([$rt]);
+$daruratAktif = array_map(fn($r) => ['id' => (int)$r['id']] + $r, $st->fetchAll());
+
 balas([
     'rt' => ['nama' => $me['rt_nama'], 'wilayah' => $me['rt_wilayah']],
     'saya' => ['nama' => $me['nama'], 'peran' => $me['peran'], 'rumah' => $me['rumah_label'], 'pengurus' => isPengurus($me)],
@@ -49,4 +60,6 @@ balas([
     'pengumuman_belum_dibaca' => $belumDibaca,
     'laporan' => $laporan,
     'laporan_aktif' => $laporanAktif,
+    'voting_belum_dipilih' => $votingBelum,
+    'darurat_aktif' => $daruratAktif,
 ]);

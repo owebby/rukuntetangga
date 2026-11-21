@@ -15,6 +15,10 @@ Rukun Tetangga adalah proyek sosial. Di banyak lingkungan, saldo kas, siapa yang
 | **Notifikasi HP** | Pengumuman baru, setiap kas keluar, iuran tercatat, dan perkembangan laporan langsung muncul di HP. |
 | **Rekap kas ke WhatsApp** | Sekali ketuk, rekap bulanan (saldo, rincian pemasukan & pengeluaran, persentase iuran) jadi gambar siap kirim ke grup WA RT. |
 | **Pengingat iuran** | Bendahara mengingatkan rumah yang belum bayar lewat pesan pribadi, bisa juga otomatis tiap bulan. Tidak pernah diumumkan ke semua. |
+| **Musyawarah & voting** | Satu rumah satu suara. Pilihan tiap rumah dirahasiakan, yang terbuka hanya jumlahnya. Hasil terlihat setelah rumahmu memilih atau setelah voting ditutup. |
+| **Rencana anggaran kegiatan** | Rencana biaya (misalnya lomba 17-an) diumumkan dulu. Pengeluaran kas yang ditautkan otomatis dibandingkan dengan rencana. Anggaran terkunci begitu kegiatan berjalan. |
+| **Tombol darurat** | Tahan 2 detik: kebakaran, pencurian, atau medis. Semua warga langsung mendapat notifikasi beralarm berisi nama & rumah pengirim. Tersedia juga nomor darurat nasional dan kontak penting RT. |
+| **Jadwal ronda** | Ketua menyusun regu per malam. Petugas check-in saat berjaga, dan pengganti bisa ikut check-in. Riwayat kehadiran 7 malam terlihat semua warga. |
 
 **Cara bergabung**: ketua RT membuat kode/QR untuk tiap rumah. Warga memindai QR atau mengetik kode, lalu mengisi nama, nomor HP, dan PIN 6 angka. Tidak perlu email atau akun Google.
 
@@ -81,8 +85,12 @@ Notifikasi memakai Firebase Cloud Messaging (gratis). Tanpa langkah ini aplikasi
    php /path/ke/rukuntetangga/cron_pengingat.php
    ```
    Tanggal kirimnya diatur lewat `pengingat_tanggal` di `config.php`.
+5. (Opsional) Pengingat ronda: tambahkan Cron Job harian jam 18.00:
+   ```
+   php /path/ke/rukuntetangga/cron_ronda.php
+   ```
 
-> **Update dari v1.0**: impor ulang `schema.sql` lewat phpMyAdmin. Aman, karena hanya menambah tabel baru (`perangkat`, `pengingat_iuran`).
+> **Update dari versi sebelumnya**: impor ulang `schema.sql` lewat phpMyAdmin. Aman, karena hanya menambah tabel yang belum ada.
 
 ### 3. Build APK yang mengarah ke servermu
 
@@ -103,7 +111,7 @@ Ketua masuk ke aplikasi, lalu buka **Akun → Rumah & kode QR → Tambah rumah**
 
 ### Tes API
 
-Tes ini menjalankan 66 pengecekan end-to-end terhadap MySQL sungguhan, termasuk hak akses tiap peran.
+Tes ini menjalankan 112 pengecekan end-to-end terhadap MySQL sungguhan, termasuk hak akses tiap peran.
 
 ```
 DB_HOST=localhost DB_NAME=rt_test DB_USER=... DB_PASS=... bash server/tests/smoke.sh
@@ -132,7 +140,7 @@ Kalau menemukan celah keamanan, mohon laporkan lewat Issues **tanpa** menyertaka
 
 ## Peta jalan
 
-v1.1 sedang diuji di lapangan. Yang masih dipertimbangkan: voting musyawarah, rencana anggaran kegiatan, tombol darurat, jadwal ronda, surat pengantar, dan inventaris RT. Usulan dari warga dan pengurus RT sangat diterima lewat **Issues**.
+v1.2 sedang diuji di lapangan. Yang masih dipertimbangkan: surat pengantar online dan inventaris/peminjaman barang RT. Usulan dari warga dan pengurus RT sangat diterima lewat **Issues**.
 
 ## Kontribusi
 
