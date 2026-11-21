@@ -8,15 +8,15 @@ return [
     'db_pass' => 'PASSWORD_DATABASE',
 
     // Alamat publik folder ini, diakhiri garis miring.
-    // Contoh: https://domainkamu.com/rukuntetangga/
-    'base_url' => 'https://domainkamu.com/rukuntetangga/',
+    // Contoh: https://okkynoisy.com/rukuntetangga/
+    'base_url' => 'https://okkynoisy.com/rukuntetangga/',
 
     // Kunci rahasia untuk setup.php (membuat RT + akun ketua pertama).
     // Ganti dengan teks acak panjang. Kosongkan ('') untuk mematikan setup.php.
     'setup_key' => 'GANTI_DENGAN_TEKS_ACAK_PANJANG',
 
     // Link unduh APK yang ditampilkan di halaman gabung (QR).
-    'apk_url' => 'https://domainkamu.com/rukuntetangga/download/rukuntetangga.apk',
+    'apk_url' => 'https://okkynoisy.com/rukuntetangga/download/rukuntetangga.apk',
 
     'timezone' => 'Asia/Jakarta',
 ];

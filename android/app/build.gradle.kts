@@ -4,7 +4,7 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val apiBase: String = (project.findProperty("apiBase") as String?) ?: "https://domainkamu.com/rukuntetangga/"
+val apiBase: String = (project.findProperty("apiBase") as String?) ?: "https://okkynoisy.com/rukuntetangga/"
 
 android {
     namespace = "com.rukuntetangga.app"

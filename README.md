@@ -35,14 +35,14 @@ Butuh PHP **8.1 atau lebih baru** dan MySQL/MariaDB.
 2. Unggah isi folder `server/` (kecuali `tests/`) ke `public_html/rukuntetangga/`.
 3. Di hosting, salin `config.sample.php` menjadi `config.php`, lalu isi:
    - data database
-   - `base_url`, misalnya `https://domainkamu.com/rukuntetangga/`
+   - `base_url`, misalnya `https://okkynoisy.com/rukuntetangga/`
    - `setup_key`: teks acak yang panjang
    - `apk_url`
-4. Buka `https://domainkamu.com/rukuntetangga/setup.php` dan isi formnya. Halaman ini membuat semua tabel, RT, dan akun ketua.
+4. Buka `https://okkynoisy.com/rukuntetangga/setup.php` dan isi formnya. Halaman ini membuat semua tabel, RT, dan akun ketua.
 5. **Kosongkan `setup_key`** di `config.php` (`'setup_key' => ''`) supaya `setup.php` mati.
 6. Cek API dari terminal:
    ```
-   curl -s https://domainkamu.com/rukuntetangga/api/beranda.php
+   curl -s https://okkynoisy.com/rukuntetangga/api/beranda.php
    ```
    Hasil yang benar: `{"ok":false,"pesan":"Silakan masuk dulu."}`. Kalau yang muncul HTML atau 404, berarti foldernya salah.
 
