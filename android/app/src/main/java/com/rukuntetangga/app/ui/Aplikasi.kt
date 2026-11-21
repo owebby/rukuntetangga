@@ -166,7 +166,6 @@ private fun Utama(
                     LayarDetailKegiatan(it.arguments!!.getInt("id"), kembali = { nav.popBackStack() })
                 }
                 composable("darurat") { LayarDarurat(saya, kembali = { nav.popBackStack() }) }
-                composable("ronda") { LayarRonda(kembali = { nav.popBackStack() }) }
                 composable("akun") { LayarAkun(saya, buka = { nav.navigate(it) }, onKeluar = onKeluar) }
                 composable("akun/pin") { LayarGantiPin(kembali = { nav.popBackStack() }) }
                 composable("pengurus/rumah") { LayarRumah(saya, kembali = { nav.popBackStack() }) }

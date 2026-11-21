@@ -18,7 +18,6 @@ Rukun Tetangga adalah proyek sosial. Di banyak lingkungan, saldo kas, siapa yang
 | **Musyawarah & voting** | Satu rumah satu suara. Pilihan tiap rumah dirahasiakan, yang terbuka hanya jumlahnya. Hasil terlihat setelah rumahmu memilih atau setelah voting ditutup. |
 | **Rencana anggaran kegiatan** | Rencana biaya (misalnya lomba 17-an) diumumkan dulu. Pengeluaran kas yang ditautkan otomatis dibandingkan dengan rencana. Anggaran terkunci begitu kegiatan berjalan. |
 | **Tombol darurat** | Tahan 2 detik: kebakaran, pencurian, atau medis. Semua warga langsung mendapat notifikasi beralarm berisi nama & rumah pengirim. Tersedia juga nomor darurat nasional dan kontak penting RT. |
-| **Jadwal ronda** | Ketua menyusun regu per malam. Petugas check-in saat berjaga, dan pengganti bisa ikut check-in. Riwayat kehadiran 7 malam terlihat semua warga. |
 
 **Cara bergabung**: ketua RT membuat kode/QR untuk tiap rumah. Warga memindai QR atau mengetik kode, lalu mengisi nama, nomor HP, dan PIN 6 angka. Tidak perlu email atau akun Google.
 
@@ -85,10 +84,6 @@ Notifikasi memakai Firebase Cloud Messaging (gratis). Tanpa langkah ini aplikasi
    php /path/ke/rukuntetangga/cron_pengingat.php
    ```
    Tanggal kirimnya diatur lewat `pengingat_tanggal` di `config.php`.
-5. (Opsional) Pengingat ronda: tambahkan Cron Job harian jam 18.00:
-   ```
-   php /path/ke/rukuntetangga/cron_ronda.php
-   ```
 
 > **Update dari versi sebelumnya**: impor ulang `schema.sql` lewat phpMyAdmin. Aman, karena hanya menambah tabel yang belum ada.
 
@@ -111,7 +106,7 @@ Ketua masuk ke aplikasi, lalu buka **Akun → Rumah & kode QR → Tambah rumah**
 
 ### Tes API
 
-Tes ini menjalankan 112 pengecekan end-to-end terhadap MySQL sungguhan, termasuk hak akses tiap peran.
+Tes ini menjalankan 102 pengecekan end-to-end terhadap MySQL sungguhan, termasuk hak akses tiap peran.
 
 ```
 DB_HOST=localhost DB_NAME=rt_test DB_USER=... DB_PASS=... bash server/tests/smoke.sh

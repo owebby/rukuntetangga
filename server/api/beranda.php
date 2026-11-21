@@ -40,7 +40,7 @@ $laporanAktif = (int)$st->fetchColumn();
 
 $iuran = ringkasIuran($rt, $periode, $me['rumah_id']);
 
-// v1.2: musyawarah yang masih dibuka & belum dipilih rumah saya, darurat aktif, ronda malam ini
+// v1.2: musyawarah yang masih dibuka & belum dipilih rumah saya dan darurat aktif
 $st = db()->prepare('SELECT COUNT(*) FROM voting v WHERE v.rt_id = ? AND v.ditutup_oleh IS NULL AND v.tutup_pada > NOW()
                        AND NOT EXISTS (SELECT 1 FROM voting_suara s WHERE s.voting_id = v.id AND s.rumah_id = ?)');
 $st->execute([$rt, $me['rumah_id']]);

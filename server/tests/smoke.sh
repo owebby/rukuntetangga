@@ -14,7 +14,7 @@ expect() { # expect "<desc>" "<jq filter yang harus true>" "<json>"
 cat > /tmp/rt_config.php <<EOF
 <?php return ['db_host'=>'${DB_HOST}','db_name'=>'${DB_NAME}','db_user'=>'${DB_USER}','db_pass'=>'${DB_PASS}',
 'base_url'=>'$B/','setup_key'=>'kunci-tes','apk_url'=>'$B/x.apk','timezone'=>'Asia/Jakarta',
-'notif_log'=>'/tmp/rt_notif.log','pengingat_tanggal'=>0,'uji_ronda_jam_bebas'=>true];
+'notif_log'=>'/tmp/rt_notif.log','pengingat_tanggal'=>0];
 EOF
 cp /tmp/rt_config.php config.php
 : > /tmp/rt_notif.log
@@ -212,19 +212,6 @@ R=$(post "$T3" "$B/api/darurat.php?aksi=kirim" -d jenis=pencurian); expect "bata
 R=$(post "$T3" "$B/api/darurat.php?aksi=kontak_tambah" -d nama=Satpam -d nomor=0812); expect "warga tak bisa atur kontak" '.ok==false' "$R"
 R=$(post "$KT" "$B/api/darurat.php?aksi=kontak_tambah" -d 'nama=Pos Satpam' -d 'nomor=0812-1111-2222'); expect "ketua tambah kontak" '.ok' "$R"
 R=$(get "$T3" "$B/api/darurat.php?aksi=daftar"); expect "riwayat darurat + kontak" '(.darurat|length)==3 and .kontak[0].nomor=="081211112222" and (.darurat[-1].selesai)' "$R"
-
-echo "== v1.2: ronda"
-if [ "$(date +%H)" -lt 12 ]; then HARI=$(date -d yesterday +%u); else HARI=$(date +%u); fi
-R=$(post "$T3" "$B/api/ronda.php?aksi=atur" -H "$J" -d "{\"hari\":$HARI,\"warga_ids\":[$W3]}"); expect "warga tak bisa atur jadwal" '.ok==false' "$R"
-R=$(post "$KT" "$B/api/ronda.php?aksi=atur" -H "$J" -d "{\"hari\":$HARI,\"warga_ids\":[$W3]}"); expect "ketua atur regu malam ini" '.ok' "$R"
-sleep 0.3; R=$(notif "Jadwal ronda"); expect "notif ke petugas" "(.ke==[$W3])" "$R"
-R=$(get "$T3" "$B/api/ronda.php?aksi=ringkas"); expect "malam ini: 1 petugas, saya dijadwalkan" '(.malam_ini.petugas|length)==1 and .saya_jadwal and (.saya_hadir|not) and (.jadwal|length)==7' "$R"
-R=$(post "$T3" "$B/api/ronda.php?aksi=hadir"); expect "check-in ronda" '.ok' "$R"
-R=$(post "$T3" "$B/api/ronda.php?aksi=hadir"); expect "check-in ganda ditolak" '.ok==false' "$R"
-R=$(post "$BT" "$B/api/ronda.php?aksi=hadir"); expect "pengganti boleh check-in" '.ok' "$R"
-R=$(get "$KT" "$B/api/ronda.php?aksi=ringkas"); expect "petugas + pengganti tercatat" '(.malam_ini.petugas|length)==2 and ([.malam_ini.petugas[]|select(.pengganti)]|length)==1 and ([.malam_ini.petugas[]|select(.hadir)]|length)==2' "$R"
-OUT=$(RT_CONFIG=$PWD/config.php php cron_ronda.php 2>&1); echo "$OUT" | grep -qE "petugas diingatkan|Tidak ada jadwal" && ok "cron ronda jalan" || bad "cron ronda: $OUT"
-[ "$(curl -s -o /dev/null -w '%{http_code}' "$B/cron_ronda.php")" = 403 ] && ok "cron ronda tertutup dari browser" || bad "cron ronda terbuka"
 
 echo "== Keamanan akses file"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/_core.php")" != 500 ] && ok "_core.php tidak error saat diakses langsung" || bad "_core.php 500"

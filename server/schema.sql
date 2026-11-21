@@ -265,25 +265,3 @@ CREATE TABLE IF NOT EXISTS kontak_rt (
   KEY idx_rt (rt_id),
   CONSTRAINT fk_kon_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ------------------------------------------------------- RONDA (v1.2)
--- Jadwal mingguan: hari 1 = Senin ... 7 = Minggu (malam hari tsb).
-CREATE TABLE IF NOT EXISTS ronda_jadwal (
-  rt_id       INT UNSIGNED NOT NULL,
-  hari        TINYINT UNSIGNED NOT NULL,
-  warga_id    INT UNSIGNED NOT NULL,
-  PRIMARY KEY (rt_id, hari, warga_id),
-  CONSTRAINT fk_rj_rt FOREIGN KEY (rt_id) REFERENCES rt(id),
-  CONSTRAINT fk_rj_warga FOREIGN KEY (warga_id) REFERENCES warga(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Kehadiran ronda. tanggal = tanggal MALAM ronda dimulai (lewat tengah malam tetap tanggal sebelumnya).
-CREATE TABLE IF NOT EXISTS ronda_hadir (
-  rt_id       INT UNSIGNED NOT NULL,
-  tanggal     DATE NOT NULL,
-  warga_id    INT UNSIGNED NOT NULL,
-  pada        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (tanggal, warga_id),
-  KEY idx_rt_tgl (rt_id, tanggal),
-  CONSTRAINT fk_rh_warga FOREIGN KEY (warga_id) REFERENCES warga(id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
