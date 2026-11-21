@@ -141,6 +141,10 @@ v1.2 sedang diuji di lapangan. Yang masih dipertimbangkan: surat pengantar onlin
 
 Laporan bug, usulan fitur, dan pull request dipersilakan. Untuk perubahan besar, buka Issue dulu supaya bisa didiskusikan.
 
+## Lisensi
+
+[MIT](LICENSE): bebas dipakai, diubah, dan dibagikan, termasuk oleh RT lain, asalkan pemberitahuan hak cipta tetap disertakan.
+
 ---
 
 Dikembangkan oleh **Okky Anggriawan**.
