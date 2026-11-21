@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "930010207334",
+    "project_id": "rukuntetangga1",
+    "storage_bucket": "rukuntetangga1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:930010207334:android:a9ded261eebad0afa889a7",
+        "android_client_info": {
+          "package_name": "com.rukuntetangga.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKb5fuDh2XkAsrrfQ4Y7P5aM8m_VSYPpA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
