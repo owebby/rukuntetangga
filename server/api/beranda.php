@@ -51,6 +51,15 @@ $st = db()->prepare('SELECT d.id, d.jenis, d.dibuat_pada, w.nama, r.label AS rum
 $st->execute([$rt]);
 $daruratAktif = array_map(fn($r) => ['id' => (int)$r['id']] + $r, $st->fetchAll());
 
+// v1.3: pengajuan pinjam inventaris yang menunggu diproses (khusus pengurus)
+$pinjamMenunggu = 0;
+if (isPengurus($me)) {
+    $st = db()->prepare("SELECT COUNT(*) FROM pinjam WHERE rt_id = ? AND status = 'diajukan'");
+    $st->execute([$rt]);
+    $pinjamMenunggu = (int)$st->fetchColumn();
+}
+
+
 balas([
     'rt' => ['nama' => $me['rt_nama'], 'wilayah' => $me['rt_wilayah']],
     'saya' => ['nama' => $me['nama'], 'peran' => $me['peran'], 'rumah' => $me['rumah_label'], 'pengurus' => isPengurus($me)],
@@ -62,4 +71,5 @@ balas([
     'laporan_aktif' => $laporanAktif,
     'voting_belum_dipilih' => $votingBelum,
     'darurat_aktif' => $daruratAktif,
+    'pinjam_menunggu' => $pinjamMenunggu, // v1.3: pengajuan pinjam yang perlu diproses (pengurus)
 ]);

@@ -285,10 +285,12 @@ fun LayarTambahKas(kembali: () -> Unit) {
 
 /** Iuran: warga melihat ringkasan + status rumahnya; bendahara/ketua mencentang rumah yang bayar. */
 @Composable
-fun LayarIuran(saya: Saya, kembali: () -> Unit) {
+fun LayarIuran(saya: Saya, kembali: () -> Unit, buka: (String) -> Unit = {}) {
     val scope = rememberCoroutineScope()
     var periode by rememberSaveable { mutableStateOf(periodeSekarang()) }
     val (state, ulang) = rememberMuat(periode) { Api.get("kas.php", "iuran", mapOf("periode" to periode)) }
+    // v1.3: tunggakan rumah sendiri (warga biasa)
+    val (tState, _) = rememberMuat { Api.get("kas.php", "tunggakan") }
     val pilih = remember(periode) { mutableStateListOf<Int>() }
     var sibuk by remember { mutableStateOf(false) }
     var pesan by remember { mutableStateOf<String?>(null) }
@@ -318,6 +320,16 @@ fun LayarIuran(saya: Saya, kembali: () -> Unit) {
                             fontSize = 12.sp, color = Warna.TeksSekunder, modifier = Modifier.padding(vertical = 12.dp),
                         )
                         pesan?.let { Text(it, color = Warna.Masuk, modifier = Modifier.padding(bottom = 8.dp)) }
+                        if (saya.pengurus) TombolSekunder("Tunggakan & keringanan per rumah", Modifier.fillMaxWidth()) { buka("kas/tunggakan") }
+                        else (tState as? Muat.Ada)?.data?.getJSONArray("rumah")?.objects()?.firstOrNull()?.let { t ->
+                            val n = t.getInt("jumlah_bulan")
+                            if (n > 0) Kartu {
+                                Text("Rumahmu belum tercatat bayar $n bulan sebelumnya", fontWeight = FontWeight.Medium,
+                                    color = if (t.getBoolean("penunggak")) Warna.Keluar else Warna.Hitam)
+                                Text(t.getJSONArray("bulan").let { a -> (0 until a.length()).joinToString { namaPeriode(a.getString(it)) } }, fontSize = 13.sp)
+                                Text("Kalau sudah membayar, hubungi bendahara untuk dicatat.", fontSize = 12.sp, color = Warna.TeksSekunder)
+                            }
+                        }
                     }
                     if (d.has("rumah")) {
                         val rumah = d.getJSONArray("rumah").objects()
@@ -338,6 +350,7 @@ fun LayarIuran(saya: Saya, kembali: () -> Unit) {
                                     )
                                     Spacer(Modifier.width(12.dp))
                                     Text(h.str("label"), Modifier.weight(1f))
+                                    if (!h.isNull("keringanan")) Lencana(if (h.str("keringanan") == "bebas") "Bebas" else "Cicilan")
                                     Text(if (lunas) "Lunas" else if (dipilih) "Akan dicatat" else "Belum",
                                         fontSize = 13.sp, color = if (lunas) Warna.Masuk else Warna.TeksSekunder)
                                 }

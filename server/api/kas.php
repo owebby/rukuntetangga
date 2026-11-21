@@ -70,6 +70,7 @@ switch (aksi()) {
         $jenis = pilihan('jenis', ['masuk', 'keluar']);
         $kategori = pilihan('kategori', $jenis === 'masuk' ? KATEGORI_KAS_MASUK : KATEGORI_KAS_KELUAR);
         if ($jenis === 'masuk' && $kategori === 'iuran') gagal('Iuran dicatat lewat menu "Catat Iuran".');
+        if ($jenis === 'masuk' && $kategori === 'sewa') gagal('Biaya pinjam inventaris dicatat otomatis dari menu Inventaris.');
         $nominal = angka('nominal', 1, 1000000000);
         $ket = teks('keterangan', 200);
         $tgl = (string)(input()['tanggal'] ?? date('Y-m-d'));
@@ -127,13 +128,15 @@ switch (aksi()) {
         ];
         if (isPengurus($me)) {
             $lunas = rumahLunas($me['rt_id'], $periode);
-            $st = db()->prepare('SELECT id, label FROM rumah WHERE rt_id = ? AND aktif = 1 ORDER BY label');
+            $st = db()->prepare('SELECT r.id, r.label, k.jenis AS keringanan FROM rumah r LEFT JOIN iuran_keringanan k ON k.rumah_id = r.id
+                                  WHERE r.rt_id = ? AND r.aktif = 1 ORDER BY r.label');
             $st->execute([$me['rt_id']]);
             $st2 = db()->prepare('SELECT pada, jumlah_rumah FROM pengingat_iuran WHERE rt_id = ? AND periode = ? ORDER BY id DESC LIMIT 1');
             $st2->execute([$me['rt_id'], $periode]);
             $data['pengingat_terakhir'] = $st2->fetch() ?: null;
             $data['rumah'] = array_map(fn($r) => [
                 'id' => (int)$r['id'], 'label' => $r['label'], 'lunas' => in_array((int)$r['id'], $lunas, true),
+                'keringanan' => $r['keringanan'],
             ], $st->fetchAll());
         }
         balas($data);
@@ -195,9 +198,42 @@ switch (aksi()) {
                'rekap' => rekapBulan($me['rt_id'], $periode)]);
     }
 
+    // v1.3 — GET tunggakan. Pengurus: semua rumah. Warga: hanya rumahnya sendiri.
+    case 'tunggakan': {
+        $me = saya();
+        $pengurus = isPengurus($me);
+        $data = tunggakanRt($me['rt_id'], $pengurus ? null : $me['rumah_id']);
+        if ($pengurus) usort($data, fn($a, $b) => $b['jumlah_bulan'] <=> $a['jumlah_bulan'] ?: strcmp($a['label'], $b['label']));
+        balas([
+            'iuran_mulai' => iuranMulai($me['rt_id']), 'batas_penunggak' => BATAS_PENUNGGAK,
+            'iuran_nominal' => $me['iuran_nominal'], 'rumah' => $data,
+            'bisa_atur' => in_array($me['peran'], PENCATAT_KAS, true),
+        ]);
+    }
+
+    // v1.3 — POST {rumah_id, jenis: bebas|cicilan|hapus, catatan} (bendahara/ketua)
+    case 'keringanan': {
+        wajibMetode('POST');
+        $me = wajibPeran(PENCATAT_KAS);
+        $rid = angka('rumah_id', 1);
+        $st = db()->prepare('SELECT 1 FROM rumah WHERE id = ? AND rt_id = ?');
+        $st->execute([$rid, $me['rt_id']]);
+        if (!$st->fetch()) gagal('Rumah tidak ditemukan.', 404);
+        $jenis = pilihan('jenis', ['bebas', 'cicilan', 'hapus']);
+        if ($jenis === 'hapus') {
+            db()->prepare('DELETE FROM iuran_keringanan WHERE rumah_id = ?')->execute([$rid]);
+        } else {
+            $cat = teks('catatan', 200);   // wajib: alasan/kesepakatan dicatat
+            db()->prepare('INSERT INTO iuran_keringanan (rumah_id, rt_id, jenis, catatan, oleh) VALUES (?, ?, ?, ?, ?)
+                           ON DUPLICATE KEY UPDATE jenis = VALUES(jenis), catatan = VALUES(catatan), oleh = VALUES(oleh), pada = NOW()')
+                ->execute([$rid, $me['rt_id'], $jenis, $cat, $me['id']]);
+        }
+        balas();
+    }
+
     case 'kategori': {
         saya();
-        balas(['masuk' => array_values(array_diff(KATEGORI_KAS_MASUK, ['iuran'])), 'keluar' => KATEGORI_KAS_KELUAR]);
+        balas(['masuk' => array_values(array_diff(KATEGORI_KAS_MASUK, ['iuran', 'sewa'])), 'keluar' => KATEGORI_KAS_KELUAR]);
     }
 
     default:

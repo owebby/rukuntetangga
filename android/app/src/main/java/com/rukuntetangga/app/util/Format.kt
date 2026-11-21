@@ -43,7 +43,7 @@ fun hariIni(): String = SimpleDateFormat("yyyy-MM-dd", ID).format(Calendar.getIn
 val LABEL_KATEGORI = mapOf(
     "iuran" to "Iuran", "sumbangan" to "Sumbangan", "kegiatan" to "Kegiatan", "lainnya" to "Lainnya",
     "kebersihan" to "Kebersihan", "keamanan" to "Keamanan", "perbaikan" to "Perbaikan",
-    "sosial" to "Sosial / duka", "administrasi" to "Administrasi",
+    "sosial" to "Sosial / duka", "administrasi" to "Administrasi", "sewa" to "Biaya pinjam inventaris",
 )
 val LABEL_LAPORAN = mapOf(
     "lampu" to "Lampu jalan", "saluran" to "Got / saluran", "sampah" to "Sampah",

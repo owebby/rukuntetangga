@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.HowToVote
 import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Sos
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -66,6 +67,7 @@ fun LayarBeranda(buka: (String) -> Unit) {
                             val vb = d.optInt("voting_belum_dipilih")
                             MenuIkon("Musyawarah", Icons.Filled.HowToVote, Modifier.weight(1f), lencana = vb) { buka("musyawarah") }
                             MenuIkon("Kegiatan", Icons.Filled.EventNote, Modifier.weight(1f)) { buka("kegiatan") }
+                            MenuIkon("Inventaris", Icons.Filled.Inventory2, Modifier.weight(1f), lencana = d.optInt("pinjam_menunggu")) { buka("inventaris") }
                             MenuIkon("Darurat", Icons.Filled.Sos, Modifier.weight(1f), merah = true) { buka("darurat") }
                         }
                         Spacer(Modifier.height(16.dp))

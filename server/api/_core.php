@@ -24,7 +24,7 @@ header('X-Content-Type-Options: nosniff');
 require __DIR__ . '/_notif.php';
 
 const PERAN_PENGURUS = ['ketua', 'bendahara', 'sekretaris'];
-const KATEGORI_KAS_MASUK  = ['iuran', 'sumbangan', 'kegiatan', 'lainnya'];
+const KATEGORI_KAS_MASUK  = ['iuran', 'sumbangan', 'kegiatan', 'sewa', 'lainnya']; // 'sewa' = biaya pinjam inventaris (v1.3)
 const KATEGORI_KAS_KELUAR = ['kebersihan', 'keamanan', 'perbaikan', 'kegiatan', 'sosial', 'administrasi', 'lainnya'];
 const KATEGORI_LAPORAN    = ['lampu', 'saluran', 'sampah', 'jalan', 'keamanan', 'fasilitas', 'lainnya'];
 

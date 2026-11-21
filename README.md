@@ -17,6 +17,9 @@ Rukun Tetangga adalah proyek sosial. Di banyak lingkungan, saldo kas, siapa yang
 | **Pengingat iuran** | Bendahara mengingatkan rumah yang belum bayar lewat pesan pribadi, bisa juga otomatis tiap bulan. Tidak pernah diumumkan ke semua. |
 | **Musyawarah & voting** | Satu rumah satu suara. Pilihan tiap rumah dirahasiakan, yang terbuka hanya jumlahnya. Hasil terlihat setelah rumahmu memilih atau setelah voting ditutup. |
 | **Rencana anggaran kegiatan** | Rencana biaya (misalnya lomba 17-an) diumumkan dulu. Pengeluaran kas yang ditautkan otomatis dibandingkan dengan rencana. Anggaran terkunci begitu kegiatan berjalan. |
+| **Tunggakan & keringanan** | Pengurus melihat tunggakan per rumah (sejak bulan awal iuran). Rumah tidak mampu bisa **dibebaskan**, atau diberi status **cicilan** yang disepakati. Keduanya wajib disertai catatan alasan. Warga hanya melihat tunggakan rumahnya sendiri. |
+| **Aturan RT** | Kesepakatan warga (hasil musyawarah) yang bisa dibaca semua warga. Setiap perubahan dikabarkan lewat notifikasi. |
+| **Inventaris & pinjam** | Tenda, kursi, sound system, dan barang RT lainnya. Alurnya: ajukan → disetujui → diserahkan → dikembalikan, dan stok dicek otomatis supaya tidak bentrok. Prinsipnya "yang ikut patungan, pinjam gratis": rumah yang menunggak ≥ 3 bulan tanpa keringanan dikenai tarif, dan uangnya otomatis tercatat sebagai kas masuk. |
 | **Tombol darurat** | Tahan 2 detik: kebakaran, pencurian, atau medis. Semua warga langsung mendapat notifikasi beralarm berisi nama & rumah pengirim. Tersedia juga nomor darurat nasional dan kontak penting RT. |
 
 **Cara bergabung**: ketua RT membuat kode/QR untuk tiap rumah. Warga memindai QR atau mengetik kode, lalu mengisi nama, nomor HP, dan PIN 6 angka. Tidak perlu email atau akun Google.
@@ -106,7 +109,7 @@ Ketua masuk ke aplikasi, lalu buka **Akun → Rumah & kode QR → Tambah rumah**
 
 ### Tes API
 
-Tes ini menjalankan 102 pengecekan end-to-end terhadap MySQL sungguhan, termasuk hak akses tiap peran.
+Tes ini menjalankan 141 pengecekan end-to-end terhadap MySQL sungguhan, termasuk hak akses tiap peran.
 
 ```
 DB_HOST=localhost DB_NAME=rt_test DB_USER=... DB_PASS=... bash server/tests/smoke.sh
@@ -135,7 +138,7 @@ Kalau menemukan celah keamanan, mohon laporkan lewat Issues **tanpa** menyertaka
 
 ## Peta jalan
 
-v1.2 sedang diuji di lapangan. Yang masih dipertimbangkan: surat pengantar online dan inventaris/peminjaman barang RT. Usulan dari warga dan pengurus RT sangat diterima lewat **Issues**.
+v1.3 sedang diuji di lapangan. Yang masih dipertimbangkan: surat pengantar online. Usulan dari warga dan pengurus RT sangat diterima lewat **Issues**.
 
 ## Kontribusi
 

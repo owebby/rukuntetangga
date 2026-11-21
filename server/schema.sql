@@ -265,3 +265,64 @@ CREATE TABLE IF NOT EXISTS kontak_rt (
   KEY idx_rt (rt_id),
   CONSTRAINT fk_kon_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------- PENGATURAN RT & ATURAN (v1.3)
+-- Tabel terpisah (bukan ALTER tabel rt) supaya migrasi cukup CREATE IF NOT EXISTS.
+CREATE TABLE IF NOT EXISTS rt_pengaturan (
+  rt_id         INT UNSIGNED PRIMARY KEY,
+  iuran_mulai   CHAR(7) NULL,                  -- 'YYYY-MM' awal hitung tunggakan, NULL = bulan RT dibuat
+  aturan        TEXT NULL,                     -- aturan RT hasil musyawarah (teks bebas)
+  aturan_oleh   INT UNSIGNED NULL,
+  aturan_pada   DATETIME NULL,
+  CONSTRAINT fk_rtp_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------- KERINGANAN IURAN (v1.3)
+-- 'bebas'   = dibebaskan (tidak dihitung menunggak, tidak masuk persentase)
+-- 'cicilan' = menunggak tapi sudah ada kesepakatan cicilan (tidak dianggap penunggak)
+CREATE TABLE IF NOT EXISTS iuran_keringanan (
+  rumah_id    INT UNSIGNED PRIMARY KEY,
+  rt_id       INT UNSIGNED NOT NULL,
+  jenis       ENUM('bebas','cicilan') NOT NULL,
+  catatan     VARCHAR(200) NOT NULL DEFAULT '',
+  oleh        INT UNSIGNED NOT NULL,
+  pada        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ik_rumah FOREIGN KEY (rumah_id) REFERENCES rumah(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ------------------------------------ INVENTARIS & PEMINJAMAN (v1.3)
+CREATE TABLE IF NOT EXISTS barang (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  rt_id       INT UNSIGNED NOT NULL,
+  nama        VARCHAR(80) NOT NULL,
+  jumlah      INT UNSIGNED NOT NULL DEFAULT 1,
+  keterangan  VARCHAR(300) NOT NULL DEFAULT '',
+  foto        VARCHAR(120) NULL,
+  tarif       INT UNSIGNED NOT NULL DEFAULT 0, -- biaya sekali pinjam untuk rumah penunggak iuran (0 = gratis semua)
+  aktif       TINYINT(1) NOT NULL DEFAULT 1,
+  dibuat_pada DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_rt (rt_id),
+  CONSTRAINT fk_brg_rt FOREIGN KEY (rt_id) REFERENCES rt(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS pinjam (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  rt_id       INT UNSIGNED NOT NULL,
+  barang_id   INT UNSIGNED NOT NULL,
+  warga_id    INT UNSIGNED NOT NULL,
+  jumlah      INT UNSIGNED NOT NULL DEFAULT 1,
+  mulai       DATE NOT NULL,
+  sampai      DATE NOT NULL,
+  keperluan   VARCHAR(200) NOT NULL DEFAULT '',
+  biaya       INT UNSIGNED NOT NULL DEFAULT 0,  -- ditetapkan saat pengajuan (penunggak = tarif barang)
+  status      ENUM('diajukan','disetujui','dipinjam','dikembalikan','ditolak','batal') NOT NULL DEFAULT 'diajukan',
+  catatan     VARCHAR(200) NOT NULL DEFAULT '',  -- alasan tolak / kondisi saat kembali
+  transaksi_id INT UNSIGNED NULL,               -- kas masuk bila ada biaya
+  diproses_oleh INT UNSIGNED NULL,
+  dibuat_pada DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  diperbarui  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_brg (barang_id, status),
+  KEY idx_rt (rt_id, dibuat_pada),
+  CONSTRAINT fk_pj_brg FOREIGN KEY (barang_id) REFERENCES barang(id),
+  CONSTRAINT fk_pj_warga FOREIGN KEY (warga_id) REFERENCES warga(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

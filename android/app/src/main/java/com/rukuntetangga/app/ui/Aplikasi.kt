@@ -143,7 +143,7 @@ private fun Utama(
                 }
                 composable("kas") { LayarKas(saya, buka = { nav.navigate(it) }) }
                 composable("kas/tambah") { LayarTambahKas(kembali = { nav.popBackStack() }) }
-                composable("kas/iuran") { LayarIuran(saya, kembali = { nav.popBackStack() }) }
+                composable("kas/iuran") { LayarIuran(saya, kembali = { nav.popBackStack() }, buka = { nav.navigate(it) }) }
                 composable("info") { LayarPengumuman(saya, buka = { nav.navigate(it) }) }
                 composable("info/tulis") { LayarTulisPengumuman(kembali = { nav.popBackStack() }) }
                 composable("info/{id}", arguments = listOf(navArgument("id") { type = NavType.IntType })) {
@@ -166,6 +166,10 @@ private fun Utama(
                     LayarDetailKegiatan(it.arguments!!.getInt("id"), kembali = { nav.popBackStack() })
                 }
                 composable("darurat") { LayarDarurat(saya, kembali = { nav.popBackStack() }) }
+                // v1.3
+                composable("inventaris") { LayarInventaris(kembali = { nav.popBackStack() }) }
+                composable("kas/tunggakan") { LayarTunggakan(kembali = { nav.popBackStack() }) }
+                composable("aturan") { LayarAturan(kembali = { nav.popBackStack() }) }
                 composable("akun") { LayarAkun(saya, buka = { nav.navigate(it) }, onKeluar = onKeluar) }
                 composable("akun/pin") { LayarGantiPin(kembali = { nav.popBackStack() }) }
                 composable("pengurus/rumah") { LayarRumah(saya, kembali = { nav.popBackStack() }) }

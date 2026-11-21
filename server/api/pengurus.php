@@ -151,7 +151,33 @@ switch (aksi()) {
 
     case 'rt_info': {
         $me = wajibPeran(PERAN_PENGURUS);
-        balas(['rt' => ['nama' => $me['rt_nama'], 'wilayah' => $me['rt_wilayah'], 'iuran_nominal' => $me['iuran_nominal']]]);
+        $st = db()->prepare('SELECT iuran_mulai FROM rt_pengaturan WHERE rt_id = ?');
+        $st->execute([$me['rt_id']]);
+        balas(['rt' => ['nama' => $me['rt_nama'], 'wilayah' => $me['rt_wilayah'], 'iuran_nominal' => $me['iuran_nominal'],
+                        'iuran_mulai' => $st->fetchColumn() ?: null]]);
+    }
+
+    // v1.3 — Aturan RT (hasil musyawarah). Semua warga boleh membaca.
+    case 'aturan': {
+        $me = saya();
+        $st = db()->prepare('SELECT p.aturan, p.aturan_pada, w.nama AS oleh FROM rt_pengaturan p LEFT JOIN warga w ON w.id = p.aturan_oleh WHERE p.rt_id = ?');
+        $st->execute([$me['rt_id']]);
+        $a = $st->fetch() ?: [];
+        balas(['aturan' => $a['aturan'] ?? '', 'diubah_pada' => $a['aturan_pada'] ?? null, 'diubah_oleh' => $a['oleh'] ?? null,
+               'bisa_ubah' => $me['peran'] === 'ketua']);
+    }
+
+    // POST {aturan} — ketua; semua warga dikabari
+    case 'aturan_simpan': {
+        wajibMetode('POST');
+        $me = wajibPeran(['ketua']);
+        $teks = trim(str_replace("\r\n", "\n", (string)(input()['aturan'] ?? '')));
+        if (mb_strlen($teks) > 10000) gagal('Aturan maksimal 10.000 karakter.');
+        db()->prepare('INSERT INTO rt_pengaturan (rt_id, aturan, aturan_oleh, aturan_pada) VALUES (?, ?, ?, NOW())
+                       ON DUPLICATE KEY UPDATE aturan = VALUES(aturan), aturan_oleh = VALUES(aturan_oleh), aturan_pada = NOW()')
+            ->execute([$me['rt_id'], $teks, $me['id']]);
+        antreNotif(wargaRt($me['rt_id'], null, $me['id']), '📜 Aturan RT diperbarui', 'Ketuk untuk membaca aturan terbaru.', 'aturan');
+        balas();
     }
 
     // POST {nama, wilayah, iuran_nominal}
@@ -161,6 +187,13 @@ switch (aksi()) {
         db()->prepare('UPDATE rt SET nama = ?, wilayah = ?, iuran_nominal = ? WHERE id = ?')->execute([
             teks('nama', 60), teks('wilayah', 150, false), angka('iuran_nominal', 0, 100000000), $me['rt_id'],
         ]);
+        // v1.3: bulan awal penghitungan tunggakan (opsional)
+        $mulai = trim((string)(input()['iuran_mulai'] ?? ''));
+        if ($mulai !== '') {
+            cekPeriode($mulai);
+            db()->prepare('INSERT INTO rt_pengaturan (rt_id, iuran_mulai) VALUES (?, ?) ON DUPLICATE KEY UPDATE iuran_mulai = VALUES(iuran_mulai)')
+                ->execute([$me['rt_id'], $mulai]);
+        }
         balas();
     }
 

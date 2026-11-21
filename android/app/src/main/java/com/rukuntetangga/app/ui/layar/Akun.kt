@@ -71,6 +71,8 @@ fun LayarAkun(saya: Saya, buka: (String) -> Unit, onKeluar: () -> Unit) {
                 BarisMenu("Daftar warga", if (saya.ketua) "Atur peran, reset PIN, nonaktifkan" else "Lihat warga terdaftar") { buka("pengurus/warga") }
                 if (saya.ketua) BarisMenu("Pengaturan RT", "Nama RT & nominal iuran") { buka("pengurus/rt") }
             }
+            JudulBagian("Lingkungan")
+            BarisMenu("Aturan RT", "Kesepakatan warga: iuran, inventaris, dll.") { buka("aturan") }
             JudulBagian("Keamanan")
             BarisMenu("Ganti PIN") { buka("akun/pin") }
             Spacer(Modifier.height(16.dp))
@@ -336,6 +338,7 @@ fun LayarAturRt(kembali: () -> Unit) {
             var nama by remember { mutableStateOf(rt.str("nama")) }
             var wilayah by remember { mutableStateOf(rt.str("wilayah")) }
             var iuran by remember { mutableStateOf(rt.getInt("iuran_nominal").toString()) }
+            var mulai by remember { mutableStateOf(rt.optString("iuran_mulai").takeIf { it.length == 7 } ?: com.rukuntetangga.app.util.periodeSekarang()) }
             var sibuk by remember { mutableStateOf(false) }
             var galat by remember { mutableStateOf<String?>(null) }
             Column(Modifier.padding(pad).padding(20.dp).verticalScroll(rememberScrollState())) {
@@ -346,13 +349,16 @@ fun LayarAturRt(kembali: () -> Unit) {
                 Isian(iuran, { iuran = it.filter(Char::isDigit).take(9) }, "Iuran bulanan per rumah (Rp)",
                     keyboard = KeyboardOptions(keyboardType = KeyboardType.Number))
                 iuran.toLongOrNull()?.let { Text(rupiah(it), fontSize = 13.sp, color = Warna.TeksSekunder, modifier = Modifier.padding(top = 4.dp)) }
+                JudulBagian("Tunggakan dihitung mulai bulan")
+                PemilihPeriode(mulai) { mulai = it }
+                Text("Bulan sebelum ini tidak dihitung sebagai tunggakan.", fontSize = 12.sp, color = Warna.TeksSekunder)
                 PesanGalat(galat)
                 Spacer(Modifier.height(20.dp))
                 TombolUtama("Simpan", aktif = nama.isNotBlank(), sibuk = sibuk) {
                     scope.launch {
                         sibuk = true; galat = null
                         try {
-                            Api.postForm("pengurus.php", "rt_atur", mapOf("nama" to nama.trim(), "wilayah" to wilayah.trim(), "iuran_nominal" to (iuran.toLongOrNull() ?: 0)))
+                            Api.postForm("pengurus.php", "rt_atur", mapOf("nama" to nama.trim(), "wilayah" to wilayah.trim(), "iuran_nominal" to (iuran.toLongOrNull() ?: 0), "iuran_mulai" to mulai))
                             kembali()
                         } catch (e: ApiException) { galat = e.message }
                         sibuk = false

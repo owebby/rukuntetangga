@@ -219,6 +219,58 @@ R=$(post "$T3" "$B/api/darurat.php?aksi=kontak_tambah" -d nama=Satpam -d nomor=0
 R=$(post "$KT" "$B/api/darurat.php?aksi=kontak_tambah" -d 'nama=Pos Satpam' -d 'nomor=0812-1111-2222'); expect "ketua tambah kontak" '.ok' "$R"
 R=$(get "$T3" "$B/api/darurat.php?aksi=daftar"); expect "riwayat darurat + kontak" '(.darurat|length)==3 and .kontak[0].nomor=="081211112222" and (.darurat[-1].selesai)' "$R"
 
+echo "== v1.3: tunggakan & keringanan"
+SQL() { mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "$1" 2>/dev/null; }
+BLN() { date -d "$(date +%Y-%m-01) $1 month" +%Y-%m; }
+SQL "UPDATE rumah SET dibuat_pada = DATE_SUB(NOW(), INTERVAL 6 MONTH)"
+R=$(post "$KT" "$B/api/pengurus.php?aksi=rt_atur" -d 'nama=RT 05 / RW 12' -d 'wilayah=Kel. Uji' -d iuran_nominal=50000 -d iuran_mulai=$(BLN -4)); expect "atur bulan awal iuran" '.ok' "$R"
+R=$(get "$KT" "$B/api/pengurus.php?aksi=rt_info"); expect "rt_info memuat iuran_mulai" ".rt.iuran_mulai==\"$(BLN -4)\"" "$R"
+R=$(get "$T3" "$B/api/kas.php?aksi=tunggakan"); expect "warga hanya melihat tunggakan rumahnya (4 bln, penunggak)" '(.rumah|length)==1 and .rumah[0].jumlah_bulan==4 and .rumah[0].penunggak' "$R"
+R=$(post "$BT" "$B/api/kas.php?aksi=iuran_catat" -H "$J" -d "{\"periode\":\"$(BLN -1)\",\"rumah_ids\":[$ID2]}")
+R=$(post "$BT" "$B/api/kas.php?aksi=iuran_catat" -H "$J" -d "{\"periode\":\"$(BLN -2)\",\"rumah_ids\":[$ID2]}")
+R=$(get "$BT" "$B/api/kas.php?aksi=tunggakan"); expect "pengurus: semua rumah, urut tunggakan terbanyak" \
+  "(.rumah|length)==3 and .rumah[0].jumlah_bulan==4 and ([.rumah[]|select(.rumah_id==$ID2)][0].jumlah_bulan==2) and ([.rumah[]|select(.rumah_id==$ID2)][0].penunggak|not)" "$R"
+
+echo "== v1.3: inventaris & peminjaman"
+H0=$(date +%Y-%m-%d); H2=$(date -d '+2 day' +%Y-%m-%d)
+R=$(post "$T3" "$B/api/inventaris.php?aksi=barang_simpan" -F nama=Tenda -F jumlah=2 -F tarif=25000); expect "warga tak bisa tambah barang" '.ok==false' "$R"
+R=$(post "$BT" "$B/api/inventaris.php?aksi=barang_simpan" -F 'nama=Tenda 3x3' -F jumlah=2 -F tarif=25000 -F 'keterangan=Tenda hajatan' -F foto=@/tmp/nota.png)
+expect "pengurus tambah barang" '.ok' "$R"; BRG=$(echo "$R" | jq .id)
+R=$(get "$T3" "$B/api/inventaris.php?aksi=daftar"); expect "penunggak melihat biaya pinjam" '.saya_penunggak and .barang[0].biaya_untuk_saya==25000 and .barang[0].tersedia_hari_ini==2' "$R"
+R=$(post "$T3" "$B/api/inventaris.php?aksi=ajukan" -d barang_id=$BRG -d jumlah=2 -d mulai=$(date -d yesterday +%Y-%m-%d) -d sampai=$H2 -d keperluan=x); expect "tanggal lampau ditolak" '.ok==false' "$R"
+R=$(post "$T3" "$B/api/inventaris.php?aksi=ajukan" -d barang_id=$BRG -d jumlah=1 -d mulai=$H0 -d sampai=$(date -d '+20 day' +%Y-%m-%d) -d keperluan=x); expect "lebih 14 hari ditolak" '.ok==false' "$R"
+R=$(post "$T3" "$B/api/inventaris.php?aksi=ajukan" -d barang_id=$BRG -d jumlah=2 -d mulai=$H0 -d sampai=$H2 -d 'keperluan=Syukuran'); expect "penunggak mengajukan: kena biaya" '.biaya==25000' "$R"; PJ1=$(echo "$R" | jq .id)
+sleep 0.3; R=$(notif "Pengajuan pinjam"); expect "notif pengajuan ke pengurus" "(.ke|index($W3))==null and (.ke|length)>=2" "$R"
+R=$(post "$BT" "$B/api/inventaris.php?aksi=ajukan" -d barang_id=$BRG -d jumlah=1 -d mulai=$H0 -d sampai=$H0 -d 'keperluan=Rapat'); expect "bukan penunggak: gratis" '.biaya==0' "$R"; PJ2=$(echo "$R" | jq .id)
+R=$(post "$T3" "$B/api/inventaris.php?aksi=proses" -d id=$PJ1 -d aksi=setujui); expect "peminjam tak bisa menyetujui sendiri" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/inventaris.php?aksi=proses" -d id=$PJ1 -d aksi=setujui); expect "ketua setujui" '.status=="disetujui"' "$R"
+R=$(post "$KT" "$B/api/inventaris.php?aksi=proses" -d id=$PJ2 -d aksi=setujui); expect "setujui bentrok stok ditolak" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/inventaris.php?aksi=proses" -d id=$PJ2 -d aksi=tolak); expect "tolak tanpa alasan ditolak" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/inventaris.php?aksi=proses" -d id=$PJ2 -d aksi=tolak -d 'catatan=Sudah dipinjam'); expect "tolak dengan alasan" '.status=="ditolak"' "$R"
+R=$(post "$KT" "$B/api/inventaris.php?aksi=proses" -d id=$PJ1 -d aksi=kembali); expect "kembali sebelum diserahkan ditolak" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/inventaris.php?aksi=proses" -d id=$PJ1 -d aksi=serahkan); expect "serahkan → biaya masuk kas" '.status=="dipinjam" and .transaksi_id>0' "$R"
+R=$(get "$T3" "$B/api/kas.php?aksi=daftar"); expect "kas: transaksi sewa terlihat warga" '[.transaksi[]|select(.kategori=="sewa" and .nominal==25000)]|length==1' "$R"
+R=$(post "$BT" "$B/api/kas.php?aksi=tambah" -d jenis=masuk -d kategori=sewa -d nominal=1 -d keterangan=x); expect "kategori sewa tak bisa dicatat manual" '.ok==false' "$R"
+R=$(get "$T3" "$B/api/inventaris.php?aksi=daftar"); expect "pinjaman berjalan terlihat, stok habis" '(.pinjaman_aktif|length)==1 and .barang[0].tersedia_hari_ini==0' "$R"
+R=$(post "$KT" "$B/api/inventaris.php?aksi=proses" -d id=$PJ1 -d aksi=kembali -d 'catatan=Lengkap, bersih'); expect "dikembalikan" '.status=="dikembalikan"' "$R"
+R=$(post "$KT" "$B/api/inventaris.php?aksi=barang_hapus" -d id=$BRG); R2=$(get "$T3" "$B/api/inventaris.php?aksi=daftar")
+expect "barang dinonaktifkan, riwayat tetap" '(.barang|length)==0 and (.riwayat|length)==2' "$R2"
+R=$(post "$BT" "$B/api/inventaris.php?aksi=barang_simpan" -F 'nama=Kursi lipat' -F jumlah=50 -F tarif=10000); BRG2=$(echo "$R" | jq .id)
+
+echo "== v1.3: keringanan & aturan"
+R=$(post "$T3" "$B/api/kas.php?aksi=keringanan" -d rumah_id=$ID3 -d jenis=bebas -d catatan=x); expect "warga tak bisa beri keringanan" '.ok==false' "$R"
+R=$(post "$BT" "$B/api/kas.php?aksi=keringanan" -d rumah_id=$ID3 -d jenis=cicilan); expect "keringanan wajib ada catatan" '.ok==false' "$R"
+R=$(post "$BT" "$B/api/kas.php?aksi=keringanan" -d rumah_id=$ID3 -d jenis=cicilan -d 'catatan=Cicil 50rb/bln mulai Des'); expect "cicilan dicatat" '.ok' "$R"
+R=$(get "$T3" "$B/api/kas.php?aksi=tunggakan"); expect "cicilan: tetap tercatat menunggak tapi bukan penunggak" '.rumah[0].jumlah_bulan==4 and (.rumah[0].penunggak|not) and .rumah[0].keringanan=="cicilan"' "$R"
+R=$(post "$T3" "$B/api/inventaris.php?aksi=ajukan" -d barang_id=$BRG2 -d jumlah=10 -d mulai=$H0 -d sampai=$H0 -d 'keperluan=Arisan'); expect "setelah cicilan disepakati: pinjam gratis" '.biaya==0' "$R"
+R=$(post "$KT" "$B/api/kas.php?aksi=keringanan" -d rumah_id=$ID1 -d jenis=bebas -d 'catatan=Lansia tinggal sendiri'); expect "bebas iuran" '.ok' "$R"
+R=$(get "$T3" "$B/api/kas.php?aksi=iuran&periode=$P"); expect "rumah bebas tidak dihitung di persentase" '.ringkasan.rumah_total==2' "$R"
+R=$(get "$BT" "$B/api/kas.php?aksi=tunggakan"); expect "rumah bebas: tunggakan 0" "[.rumah[]|select(.rumah_id==$ID1)][0].jumlah_bulan==0" "$R"
+R=$(post "$T3" "$B/api/pengurus.php?aksi=aturan_simpan" -d aturan=x); expect "warga tak bisa ubah aturan" '.ok==false' "$R"
+R=$(post "$KT" "$B/api/pengurus.php?aksi=aturan_simpan" --data-urlencode $'aturan=1. Iuran Rp50.000/bulan.\n2. Menunggak 3 bulan: pinjam inventaris dikenai biaya.'); expect "ketua simpan aturan" '.ok' "$R"
+sleep 0.3; R=$(notif "Aturan RT"); expect "notif aturan ke semua warga" '(.ke|length)>=2 and .buka=="aturan"' "$R"
+R=$(get "$T3" "$B/api/pengurus.php?aksi=aturan"); expect "warga membaca aturan" '(.aturan|test("Menunggak 3 bulan")) and (.bisa_ubah|not) and .diubah_oleh=="Pak Ketua"' "$R"
+
 echo "== Keamanan akses file"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/_core.php")" != 500 ] && ok "_core.php tidak error saat diakses langsung" || bad "_core.php 500"
 
