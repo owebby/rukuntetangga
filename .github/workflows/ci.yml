@@ -65,6 +65,8 @@ jobs:
           gradle assembleRelease --no-daemon -PversionCode=${{ github.run_number }} ${API:+-PapiBase=$API}
           cp app/build/outputs/apk/release/app-release.apk ../rukuntetangga.apk
           ls -lh ../rukuntetangga.apk
+          # Sidik jari kunci tanda tangan (harus SAMA di setiap build agar update bisa menimpa)
+          keytool -printcert -jarfile ../rukuntetangga.apk | grep -E "Owner|SHA256" || true
       - uses: actions/upload-artifact@v4
         with:
           name: rukuntetangga-apk
