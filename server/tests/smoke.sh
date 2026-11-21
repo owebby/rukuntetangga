@@ -132,5 +132,8 @@ echo "== Keamanan akses file"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$B/api/_core.php")" != 500 ] && ok "_core.php tidak error saat diakses langsung" || bad "_core.php 500"
 
 echo
-if grep -qi 'fatal\|warning' /tmp/php-server.log; then echo "--- PHP log ---"; grep -i 'fatal\|warning' /tmp/php-server.log; FAIL=1; fi
+# Cek error/warning PHP dari kode kita. Abaikan peringatan lingkungan (mis. JIT vs ekstensi debug di runner CI).
+if grep -iE 'fatal|warning|deprecated' /tmp/php-server.log | grep -viE 'JIT (is )?incompatible|JIT disabled' | grep -q .; then
+  echo "--- PHP log ---"; grep -iE 'fatal|warning|deprecated' /tmp/php-server.log | grep -viE 'JIT (is )?incompatible|JIT disabled'; FAIL=1
+fi
 [ $FAIL = 0 ] && echo "SEMUA TES LULUS" || { echo "ADA TES GAGAL"; exit 1; }
