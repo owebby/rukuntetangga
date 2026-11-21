@@ -1,0 +1,5 @@
+# Lindungi file sensitif di folder aplikasi.
+<FilesMatch "^(config\.php|config\.sample\.php|schema\.sql)$">
+  Require all denied
+</FilesMatch>
+Options -Indexes

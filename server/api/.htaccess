@@ -1,0 +1,6 @@
+# File berawalan _ hanya untuk di-include, bukan diakses langsung.
+<FilesMatch "^_">
+  Require all denied
+</FilesMatch>
+# Teruskan header Authorization ke PHP (beberapa hosting membuangnya).
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1

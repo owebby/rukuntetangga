@@ -1,0 +1,13 @@
+server/config.php
+server/uploads/*
+!server/uploads/.htaccess
+# Android
+.gradle/
+build/
+local.properties
+*.keystore
+*.jks
+.idea/
+*.iml
+captures/
+.kotlin/
