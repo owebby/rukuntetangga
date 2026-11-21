@@ -37,6 +37,12 @@ echo "$H" | grep -q 'Berhasil' && ok "setup.php membuat RT + ketua" || { bad "se
 post() { curl -s -X POST -H "Authorization: Bearer $1" "${@:2}"; }
 get()  { curl -s -H "Authorization: Bearer $1" "$2"; }
 
+echo "== Migrasi"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$B/migrasi.php?kunci=salah")" = 403 ] && ok "migrasi: kunci salah ditolak" || bad "migrasi tanpa kunci terbuka"
+R=$(curl -s "$B/migrasi.php?kunci=kunci-tes"); echo "$R" | grep -q "Tidak ada tabel baru" && ok "migrasi diulang aman (tabel sudah lengkap)" || bad "migrasi: $R"
+mysql -h"$DB_HOST" -u"$DB_USER" -p"$DB_PASS" "$DB_NAME" -e "SET FOREIGN_KEY_CHECKS=0; DROP TABLE darurat; SET FOREIGN_KEY_CHECKS=1;" 2>/dev/null
+R=$(curl -s "$B/migrasi.php?kunci=kunci-tes"); echo "$R" | grep -q "ditambahkan: darurat" && ok "migrasi menambah tabel yang hilang" || bad "migrasi: $R"
+
 echo "== Auth"
 R=$(curl -s -X POST "$B/api/auth.php?aksi=masuk" -H 'Content-Type: application/json' -d '{"hp":"081200000001","pin":"111111"}')
 expect "PIN salah ditolak" '.ok == false' "$R"

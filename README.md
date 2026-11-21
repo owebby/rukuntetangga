@@ -85,7 +85,7 @@ Notifikasi memakai Firebase Cloud Messaging (gratis). Tanpa langkah ini aplikasi
    ```
    Tanggal kirimnya diatur lewat `pengingat_tanggal` di `config.php`.
 
-> **Update dari versi sebelumnya**: impor ulang `schema.sql` lewat phpMyAdmin. Aman, karena hanya menambah tabel yang belum ada.
+> **Update dari versi sebelumnya**: unggah file server terbaru, lalu buka `https://domainmu.com/rukuntetangga/migrasi.php?kunci=SETUP_KEY`. Untuk itu `setup_key` di `config.php` harus diisi sementara, lalu dikosongkan lagi setelahnya. Halaman ini hanya menambah tabel yang belum ada; data lama tidak disentuh. Cara lainnya: impor `schema.sql` lewat phpMyAdmin.
 
 ### 3. Build APK yang mengarah ke servermu
 
